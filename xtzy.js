@@ -153,15 +153,15 @@ async function enhancedFetch(app) {
   const now = new Date();
   const executionTime = ((Date.now() - startTime) / 1000).toFixed(1);
   
-  // 仅在 hasUpdate 为 true 或有失败的应用时才发送通知
+  // 修改通知逻辑：只在有更新或查询失败时发送通知
   if (hasUpdate || results.failed.length > 0) {
-    const title = hasUpdate ? "🚀 代理工具更新" : "📱 代理工具检测";
-    let subtitle = hasUpdate ? "✨ 发现代理工具更新" : "ℹ️ 检测完成";
+    const title = hasUpdate ? "🚀 代理工具更新" : "❌ 代理工具检测失败";
+    let subtitle = hasUpdate ? "✨ 发现代理工具更新" : "⚠️ 部分工具查询失败";
     
     let body = "";
     let hasContent = false;
     
-    // 更新详情
+    // 更新详情（只在有更新时显示）
     if (hasUpdate) {
       const updates = results.updated["代理工具"];
       if (updates.length > 0) {
@@ -173,8 +173,8 @@ async function enhancedFetch(app) {
       }
     }
     
-    // 当前版本
-    if (results.current.length > 0) {
+    // 当前版本（只在有更新时显示）
+    if (hasUpdate && results.current.length > 0) {
       if (hasContent) body += "\n\n";
       body += `✅ 最新版工具:\n`;
       body += results.current.map(c => 
@@ -183,12 +183,22 @@ async function enhancedFetch(app) {
       hasContent = true;
     }
     
-    // 失败应用
+    // 失败应用（有失败时显示）
     if (results.failed.length > 0) {
       if (hasContent) body += "\n\n";
       body += `❌ 查询失败:\n`;
       body += results.failed.map(f => 
         `${f.app.icon} ${f.app.name}: 请检查网络或应用状态`
+      ).join("\n");
+      hasContent = true;
+    }
+    
+    // 如果没有更新但有失败，显示成功查询的应用
+    if (!hasUpdate && results.failed.length > 0 && results.current.length > 0) {
+      if (hasContent) body += "\n\n";
+      body += `✅ 成功查询:\n`;
+      body += results.current.map(c => 
+        `${c.app.icon} ${c.app.name}: ${c.version}`
       ).join("\n");
       hasContent = true;
     }
@@ -209,12 +219,12 @@ async function enhancedFetch(app) {
       body += `\n\n💡 提示: ${results.failed.length}个工具查询失败，可能因区域限制或网络问题`;
     }
     
-    body += "\n🔔 自动检测 | 发现更新时通知";
+    body += "\n🔔 自动检测 | 发现更新或失败时通知";
     
     $notification.post(title, subtitle, body);
   } else {
-    // 没有更新且没有失败时，只记录日志
-    console.log("✅ 所有代理工具均为最新版本，无需通知");
+    // 没有更新且没有失败时，只记录日志，不发送通知
+    console.log("✅ 所有代理工具均为最新版本且查询成功，无需通知");
   }
   
   // 调试日志
