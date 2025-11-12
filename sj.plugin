@@ -1,6 +1,6 @@
 #!name=声荐每日自动签到
 #!desc=微信小程序声荐每日签到加领取小红花，首次运行请打开微信声荐小程序，等收到获取token即可，自动签到每日10点，11点，12点自动运行。日后提示token失效就再打开微信声荐小程序更新token。
-#!icon=https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1012.png
+#!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 #!tag=每日提醒
 
 [Script]
