@@ -1,0 +1,10 @@
+#!name=声荐每日自动签到
+#!desc=微信小程序声荐每日签到加领取小红花，首次运行请打开微信声荐小程序，等收到获取token即可，自动签到每日10点，11点，12点自动运行。日后提示token失效就再打开微信声荐小程序更新token。
+
+[Script]
+声荐自动抓取token = type=http-response, pattern=^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login, script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, max-size=0, script-update-interval=0, timeout=60
+
+声荐小红花领取 = type=cron, cronexp="0 10,11,12 * * *", script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjqd.js, script-update-interval=0, timeout=60
+
+[MITM]
+hostname = %APPEND% to0tk85.t3rw0no.my:40060
