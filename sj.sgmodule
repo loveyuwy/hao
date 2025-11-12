@@ -7,4 +7,4 @@
 声荐小红花领取 = type=cron, cronexp="0 10,11,12 * * *", script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjqd.js, script-update-interval=0, timeout=60
 
 [MITM]
-hostname = %APPEND% to0tk85.t3rw0no.my:40060
+hostname = %APPEND% xcx.myinyun.com:4438
