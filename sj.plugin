@@ -6,7 +6,7 @@
 [Script]
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token
 
-cron "0 10,11,12 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjqd.js, timeout=60, tag=声荐小红花领取
+cron "0 10,11,12 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjqd.js, timeout=60, tag=声荐自动任务
 
 [MITM]
 hostname = xcx.myinyun.com
