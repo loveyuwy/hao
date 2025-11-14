@@ -1,0 +1,1 @@
+return_empty_json = type=mock, content={"body":"{}","status":200,"headers":{"Content-Type":"application/json"}}
