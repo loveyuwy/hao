@@ -4,6 +4,7 @@
 
 [Rule]
 # > 本地软件去开屏广告
+DOMAIN,beizi.biz,REJECT // 百度地图
 DOMAIN-SUFFIX,ad.migu.cn,REJECT // 百度地图
 DOMAIN,sdk.e.qq.com,REJECT // 咪咕视频去广告
 DOMAIN-SUFFIX,ggx04.miguvideo.com,REJECT-TINYGIF // 咪咕视频去开屏
@@ -45,6 +46,8 @@ tps:\/\/sdk\.e\.qq\.com\/event data-type=text data="{}"
 ^https:\/\/ggc\.miguvideo\.com\/v1\/iflyad\/deliverysystem\/direct\/ data-type=text data="{}"
 
 # > UC浏览器去开屏
+^https:\/\/huichuan\.sm\.cn\/nativead data-type=text data="{}"
+
 ^https:\/\/puds\.ucweb\.com\/upgrade data-type=text data="{}"
 
 ^https:\/\/api-access\.pangolin-sdk-toutiao\.com\/api\/ad\/union\/sdk\/get_ads\/ data-type=text data="{}"
@@ -89,6 +92,8 @@ https?:\/\/helper\.2bulu\.com\/(greenPea\/queryTasks|proSpecial\/allData|saveSpl
 ^https:\/\/client\.app\.coc\.10086\.cn\/biz-orange\/DN\/(explorePage\/getAdverList|init\/startInit) data-type=text data="{}" status-code=200
 
 # > 百度地图去开屏
+^https:\/\/pic\.fancyapi\.com\/creative_v2\/upload\/resource\/ data-type=text data="{}"
+
 ^https?:\/\/.*ubixioe\.com\/mob\/sdk\/v\d\/endpoint data-type=text data="{}" status-code=200
 
 ^https?:\/\/sdk\.1rtb\.net\/sdk\/req_ad data-type=text data="{}" status-code=200
