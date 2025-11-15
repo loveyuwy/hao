@@ -27,6 +27,7 @@ AND,((URL-REGEX,^http:\/\/.+\/amdc\/mobileDispatch,extended-matching), (USER-AGE
 ^https:\/\/midc\.cdn-static\.abchina\.com\.cn\/distributecenterimg\/file\/download\/08cd095b83944c75a1da6012e0d204b09900032820251029 - reject
 
 [Body Rewrite]
+# > 爱奇艺去开屏
 http-response-jq ^https?:\/\/(kjp|t7z)\.cupid\.iqiyi\.com\/mixer\? 'delpaths([["adSlots"]])'
 
 [Map Local]
