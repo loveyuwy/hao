@@ -4,15 +4,13 @@
 
 [Rule]
 # > 本地软件去开屏广告
-DOMAIN,beizi.biz,REJECT // 百度地图
-DOMAIN-SUFFIX,ad.migu.cn,REJECT // 百度地图
 DOMAIN,sdk.e.qq.com,REJECT // 咪咕视频去广告
 DOMAIN-SUFFIX,ggx04.miguvideo.com,REJECT-TINYGIF // 咪咕视频去开屏
 DOMAIN-SUFFIX,ggx03.miguvideo.com,REJECT-TINYGIF // 咪咕视频去开屏
 DOMAIN-SUFFIX,lf-cdn-tos.bytescm.com,REJECT-TINYGIF // 咪咕视频去开屏
 DOMAIN-SUFFIX,bytescm.com,REJECT-TINYGIF // 咪咕视频去开屏
 DOMAIN-SUFFIX,sdk-log.partner.sm.cn,REJECT // uc浏览器开屏
-DOMAIN-SUFFIX,dc.sigmob.cn,REJECT // 微店去开屏
+DOMAIN-SUFFIX,dc.sigmob.cn,REJECT // 微店去开屏广告
 DOMAIN,msmp.abchina.com.cn,REJECT // 屏蔽农行代理检测
 DOMAIN-SUFFIX,marketing-aibox.v.mitvos.com,REJECT // 小爱音箱
 URL-REGEX,^http:\/\/rich\.kuwo\.cn\/AdService\/,REJECT-TINYGIF,extended-matching // 酷我音乐去开屏
