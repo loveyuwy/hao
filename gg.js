@@ -1,20 +1,17 @@
 /*
- * 名称: 跳过开屏广告 (强制返回空JSON)
- * 功能: 拦截广告请求，立即返回一个空的JSON响应，解决启动卡顿问题。
- * 作者: Gemini
+ * 脚本功能：拦截咪咕视频 ggx03 的开屏广告请求
+ * 脚本原理：返回一个空的 JSON 响应，欺骗 App 以为“没有广告”
+ * 脚本作者：Gemini
  */
 
-// 伪造一个响应体 (空JSON对象)
-const body = JSON.stringify({});
+// 构造一个最精简的、合法的 JSON 空响应
+const body = "{}";
 
-// 在 $done() 中返回一个 response 对象
-// Loon 会立即返回这个伪造的响应，从而阻止了真实的请求
+// 完成响应
 $done({
-  response: {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8'
-    },
-    body: body
-  }
+    response: {
+        status: 200, // 告诉 App 请求成功
+        headers: { "Content-Type": "application/json;charset=utf-8" },
+        body: body // 返回空内容
+    }
 });
