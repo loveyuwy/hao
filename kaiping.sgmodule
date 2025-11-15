@@ -1,0 +1,124 @@
+#!name=火华自用软件去开屏
+#!desc=就只是去软件的开屏
+#!category=去广告
+
+[Rule]
+# > 本地软件去开屏广告
+DOMAIN,sdk.e.qq.com,REJECT
+DOMAIN-SUFFIX,ggx04.miguvideo.com,REJECT-TINYGIF
+DOMAIN-SUFFIX,ggx03.miguvideo.com,REJECT-TINYGIF
+DOMAIN-SUFFIX,lf-cdn-tos.bytescm.com,REJECT-TINYGIF
+DOMAIN-SUFFIX,bytescm.com,REJECT-TINYGIF
+DOMAIN-SUFFIX,sdk-log.partner.sm.cn,REJECT
+DOMAIN-SUFFIX,dc.sigmob.cn,REJECT
+DOMAIN,msmp.abchina.com.cn,REJECT
+DOMAIN-SUFFIX,marketing-aibox.v.mitvos.com,REJECT
+URL-REGEX,"^http:\/\/rich\.kuwo\.cn\/AdService\/",REJECT-TINYGIF,extended-matching
+DOMAIN,adashx.m.taobao.com,REJECT
+DOMAIN,adui.tg.meitu.com,REJECT
+AND,((URL-REGEX,"^http:\/\/.+\/amdc\/mobileDispatch",extended-matching),(USER-AGENT,"%E9%97%B2%E9%B1%BC*")),REJECT
+
+[URL Rewrite]
+# > UC浏览器去开屏 header
+^https:\/\/image\.uczzd\.cn - reject
+# > 12306去开屏 header
+^https?:\/\/ad\.12306\.cn\/ad\/ser\/getAdList - reject
+# > 农业银行去开屏 header
+^https:\/\/midc\.cdn-static\.abchina\.com\.cn\/distributecenterimg\/file\/download\/08cd095b83944c75a1da6012e0d204b09900032820251029 - reject
+
+[Body Rewrite]
+http-response-jq ^https?:\/\/(kjp|t7z)\.cupid\.iqiyi\.com\/mixer\? 'delpaths([["adSlots"]])'
+
+[Map Local]
+# > 咪咕视频去开屏
+^http:\/\/ggic09\.miguvideo\.com\/ad\/impress data-type=text data="{}"
+
+^https:\/\/apm-sdk\.cmvideo\.cn\/reportBatchData data-type=text data="{}"
+
+tps:\/\/sdk\.e\.qq\.com\/event data-type=text data="{}"
+
+^https:\/\/api-access\.pangolin-sdk-toutiao1\.com\/api\/ad\/union\/sdk\/stats\/batch\/ data-type=text data="{}"
+
+^https:\/\/sf6-fe-tos\.pglstatp-toutiao\.com\/obj\/ad-pattern\/renderer\/ data-type=text data="{}"
+
+^https:\/\/ggc\.miguvideo\.com\/v1\/iflyad\/deliverysystem\/direct\/ data-type=text data="{}"
+
+# > UC浏览器去开屏
+^https:\/\/puds\.ucweb\.com\/upgrade data-type=text data="{}"
+
+^https:\/\/api-access\.pangolin-sdk-toutiao\.com\/api\/ad\/union\/sdk\/get_ads\/ data-type=text data="{}"
+
+# > 微店去开屏
+^https:\/\/thor\.weidian\.com\/ares\/home\.splash\/1\.1 data-type=text data="{}"
+
+^https:\/\/mi\.gdt\.qq\.com\/gdt_mview\.fcg data-type=text data="{}"
+
+# > 米家去开屏
+^https?:\/\/api\.m\.mi\.com\/v1\/app\/start data-type=text data="{}"
+
+# > 闲鱼去开屏
+^https:\/\/acs\.m\.goofish\.com\/gw\/mtop\.taobao\.idlecommerce\.splash\.ads\/ data-type=text data="{}" status-code=200 header="Content-Type: application/json"
+
+# > 两步路户外助手去开屏
+https?:\/\/helper\.2bulu\.com\/(greenPea\/queryTasks|proSpecial\/allData|saveSplashFrequencyStatistics|getPopInfo|getAppEntranceConfig|promote\/list|getSplash|outing\/reqFoundNewList|outing\/reqIndex) data-type=text data="{}" status-code=200
+
+# > 屏蔽中国人寿开屏广告
+^https:\/\/ecssmobile\.e-chinalife\.com:8082\/ecss\/web\/appupdate\/customization\/getFlashScreenInfo data-type=text data="{}" status-code=200 header="Content-Type: application/json"
+
+# > 网易邮箱去开屏
+^https:\/\/appconf\.mail\.163\.com\/mailmaster\/api\/http\/urlConfig\.do$ data-type=text data="{}" status-code=200
+
+^https:\/\/dashi\.163\.com\/task-center-api\/fapi\/task\/list$ data-type=text data="{}" status-code=200
+
+^https:\/\/appconf\.mail\.163\.com\/mailoperating\/mailmaster\/api\/operator\/get$ data-type=text data="{}" status-code=200
+
+# > 平安好车主去开屏
+^https?:\/\/iobs\.pingan\.com\.cn\/download\/icore-aops-base-dmz-prd\/(YourSystemName|icore-apps-ad) data-type=text data="{}" status-code=200
+
+# > 京东去开屏
+^https?:\/\/m\.360buyimg\.com\/mobilecms\/s1125x2436_jfs data-type=text data="{}" status-code=200
+
+# > 虎扑去开屏
+^https?:\/\/goblin\.hupu\.com\/.+\/interfaceAd\/getOther data-type=text data="{}" status-code=200
+
+# > 喜马拉雅去开屏
+^https:\/\/(m|mwsa)\.ximalaya\.com\/x-web-activity\/signIn\/getHomePageSignInInfo data-type=text data="{}" status-code=200
+
+# > 中国移动去开屏
+^https:\/\/client\.app\.coc\.10086\.cn\/biz-orange\/DN\/(explorePage\/getAdverList|init\/startInit) data-type=text data="{}" status-code=200
+
+# > 百度地图去开屏
+^https?:\/\/.*ubixioe\.com\/mob\/sdk\/v\d\/endpoint data-type=text data="{}" status-code=200
+
+^https?:\/\/sdk\.1rtb\.net\/sdk\/req_ad data-type=text data="{}" status-code=200
+
+^https:\/\/afd\.baidu\.com\/afd\/entry\?action=(update|query) data-type=text data="{}" status-code=200 header="Content-Type: application/json"
+
+^https:\/\/yongche\.baidu\.com\/gomarketing\/api\/popup\/getentrancecordovaurl$ data-type=text data="{}" status-code=200 header="Content-Type: application/json"
+
+^https:\/\/yongche\.baidu\.com\/goorder\/passenger\/cobuild\/pull\? data-type=text data="{}" status-code=200 header="Content-Type: application/json"
+
+^https:\/\/yongche\.baidu\.com\/goorder\/passenger\/operationgirdle$ data-type=text data="{}" status-code=200 header="Content-Type: application/json"
+
+^https:\/\/yongche\.baidu\.com\/goorder\/passenger\/baseinfo$ data-type=text data="{}" status-code=200 header="Content-Type: application/json"
+
+^https:\/\/ecom\.map\.baidu\.com\/ad-ops\/afd\/popup\? data-type=text data="{}" status-code=200 header="Content-Type: application/json"
+
+^https:\/\/maphotel\.baidu\.com\/hotel\/goextranet\/activity\/detail\? data-type=text data="{}" status-code=200 header="Content-Type: application/json"
+
+# > 小红书去开屏
+^https:\/\/www\.xiaohongshu\.com\/api\/sns\/(?:v1\/ads\/resource|v2\/hey\/\w+\/hey_gallery) data-type=text data="{}" status-code=200
+
+# > 拼多多去开屏
+^https:\/\/api\.(?:pinduoduo|yangkeduo)\.com\/api\/cappuccino\/splash\? data-type=text data="{}" status-code=200
+
+# > 酷狗去开屏
+^https:\/\/gateway(retry)?\.kugou\.com\/mstc\/musicsymbol\/v\d\/system\/profile data-type=text data="{}" status-code=200
+
+# > 网易云音乐去开屏
+^https?:\/\/(ipv4|interface\d?)\.music\.163.com\/e?api\/ad data-type=text data="{}" status-code=200
+
+^https?:\/\/interface\d?\.music\.163\.com\/e?api\/(ocpc\/)?ad\/ data-type=text data="{}" status-code=200
+
+[MITM]
+hostname = %APPEND% apm-sdk.cmvideo.cn, sf6-fe-tos.pglstatp-toutiao.com, api-access.pangolin-sdk-toutiao1.com, ggc.miguvideo.com, thor.weidian.com, api-access.pangolin-sdk-toutiao.com, mi.gdt.qq.com, ad.12306.cn, helper.2bulu.com, dashi.163.com, appconf.mail.163.com, iobs.pingan.com.cn, m.360buyimg.com, ecssmobile.e-chinalife.com, midc.cdn-static.abchina.com.cn, interface3.music.163.com, gateway.kugou.com, acs.m.goofish.com, api.pinduoduo.com, www.xiaohongshu.com, tx-cfg-u1.ubixioe.com, sdk.1rtb.net, yongche.baidu.com, ecom.map.baidu.com, newclient.map.baidu.com, afd.baidu.com, m.ximalaya.com, goblin.hupu.com, client.app.coc.10086.cn, *.iqiyi.com
