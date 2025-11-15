@@ -4,19 +4,20 @@
 
 [Rule]
 # > 本地软件去开屏广告
-DOMAIN,sdk.e.qq.com,REJECT
-DOMAIN-SUFFIX,ggx04.miguvideo.com,REJECT-TINYGIF
-DOMAIN-SUFFIX,ggx03.miguvideo.com,REJECT-TINYGIF
-DOMAIN-SUFFIX,lf-cdn-tos.bytescm.com,REJECT-TINYGIF
-DOMAIN-SUFFIX,bytescm.com,REJECT-TINYGIF
-DOMAIN-SUFFIX,sdk-log.partner.sm.cn,REJECT
-DOMAIN-SUFFIX,dc.sigmob.cn,REJECT
-DOMAIN,msmp.abchina.com.cn,REJECT
-DOMAIN-SUFFIX,marketing-aibox.v.mitvos.com,REJECT
-URL-REGEX,"^http:\/\/rich\.kuwo\.cn\/AdService\/",REJECT-TINYGIF,extended-matching
-DOMAIN,adashx.m.taobao.com,REJECT
-DOMAIN,adui.tg.meitu.com,REJECT
-AND,((URL-REGEX,"^http:\/\/.+\/amdc\/mobileDispatch",extended-matching),(USER-AGENT,"%E9%97%B2%E9%B1%BC*")),REJECT
+DOMAIN-SUFFIX,ad.migu.cn,REJECT // 百度地图
+DOMAIN,sdk.e.qq.com,REJECT // 咪咕视频去广告
+DOMAIN-SUFFIX,ggx04.miguvideo.com,REJECT-TINYGIF // 咪咕视频去开屏
+DOMAIN-SUFFIX,ggx03.miguvideo.com,REJECT-TINYGIF // 咪咕视频去开屏
+DOMAIN-SUFFIX,lf-cdn-tos.bytescm.com,REJECT-TINYGIF // 咪咕视频去开屏
+DOMAIN-SUFFIX,bytescm.com,REJECT-TINYGIF // 咪咕视频去开屏
+DOMAIN-SUFFIX,sdk-log.partner.sm.cn,REJECT // uc浏览器开屏
+DOMAIN-SUFFIX,dc.sigmob.cn,REJECT // 微店去开屏
+DOMAIN,msmp.abchina.com.cn,REJECT // 屏蔽农行代理检测
+DOMAIN-SUFFIX,marketing-aibox.v.mitvos.com,REJECT // 小爱音箱
+URL-REGEX,^http:\/\/rich\.kuwo\.cn\/AdService\/,REJECT-TINYGIF,extended-matching // 酷我音乐去开屏
+DOMAIN,adashx.m.taobao.com,REJECT // 淘宝去开屏
+DOMAIN,adui.tg.meitu.com,REJECT // 美图秀秀去开屏
+AND,((URL-REGEX,^http:\/\/.+\/amdc\/mobileDispatch,extended-matching), (USER-AGENT,%E9%97%B2%E9%B1%BC*)),REJECT // 闲鱼去广告
 
 [URL Rewrite]
 # > UC浏览器去开屏 header
