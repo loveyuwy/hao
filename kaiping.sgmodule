@@ -41,6 +41,10 @@ http-response-jq ^https?:\/\/(kjp|t7z)\.cupid\.iqiyi\.com\/mixer\? 'delpaths([["
 
 [Map Local]
 # > 咪咕视频去开屏
+^https:\/\/sdk-config\.miguvideo\.com\/v2\/sdk\/config data-type=text data="{}"
+
+^https:\/\/c-app\.miguvideo\.com\/v2\/sdk\/config data-type=text data="{}"
+
 ^http:\/\/ggic09\.miguvideo\.com\/ad\/impress data-type=text data="{}"
 
 ^https:\/\/apm-sdk\.cmvideo\.cn\/reportBatchData data-type=text data="{}"
@@ -114,4 +118,4 @@ https?:\/\/helper\.2bulu\.com\/(greenPea\/queryTasks|proSpecial\/allData|saveSpl
 ^https?:\/\/interface\d?\.music\.163\.com\/e?api\/(ocpc\/)?ad\/ data-type=text data="{}" status-code=200
 
 [MITM]
-hostname = %APPEND% huichuan.sm.cn, apm-sdk.cmvideo.cn, sf6-fe-tos.pglstatp-toutiao.com, api-access.pangolin-sdk-toutiao1.com, ggc.miguvideo.com, thor.weidian.com, api-access.pangolin-sdk-toutiao.com, mi.gdt.qq.com, ad.12306.cn, helper.2bulu.com, dashi.163.com, appconf.mail.163.com, iobs.pingan.com.cn, m.360buyimg.com, ecssmobile.e-chinalife.com, midc.cdn-static.abchina.com.cn, interface3.music.163.com, gateway.kugou.com, acs.m.goofish.com, api.pinduoduo.com, www.xiaohongshu.com, m.ximalaya.com, goblin.hupu.com, client.app.coc.10086.cn, *.iqiyi.com
+hostname = %APPEND% c-app.miguvideo.com, sdk-config.miguvideo.com, huichuan.sm.cn, apm-sdk.cmvideo.cn, sf6-fe-tos.pglstatp-toutiao.com, api-access.pangolin-sdk-toutiao1.com, ggc.miguvideo.com, thor.weidian.com, api-access.pangolin-sdk-toutiao.com, mi.gdt.qq.com, ad.12306.cn, helper.2bulu.com, dashi.163.com, appconf.mail.163.com, iobs.pingan.com.cn, m.360buyimg.com, ecssmobile.e-chinalife.com, midc.cdn-static.abchina.com.cn, interface3.music.163.com, gateway.kugou.com, acs.m.goofish.com, api.pinduoduo.com, www.xiaohongshu.com, m.ximalaya.com, goblin.hupu.com, client.app.coc.10086.cn, *.iqiyi.com
