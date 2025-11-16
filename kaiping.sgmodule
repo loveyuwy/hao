@@ -18,6 +18,7 @@ DOMAIN-SUFFIX,ggx04.miguvideo.com,REJECT-TINYGIF // 咪咕视频去开屏
 DOMAIN-SUFFIX,ggx03.miguvideo.com,REJECT-TINYGIF // 咪咕视频去开屏
 DOMAIN-SUFFIX,lf-cdn-tos.bytescm.com,REJECT-TINYGIF // 咪咕视频去开屏
 DOMAIN-SUFFIX,bytescm.com,REJECT-TINYGIF // 咪咕视频去开屏
+DOMAIN-SUFFIX,acs.m.taobao.com,REJECT // uc浏览器去开屏
 DOMAIN-SUFFIX,sdk-log.partner.sm.cn,REJECT // uc浏览器开屏
 DOMAIN-SUFFIX,dc.sigmob.cn,REJECT // 微店去开屏广告
 DOMAIN,msmp.abchina.com.cn,REJECT // 屏蔽农行代理检测
