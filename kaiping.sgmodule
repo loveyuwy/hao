@@ -58,6 +58,10 @@ tps:\/\/sdk\.e\.qq\.com\/event data-type=text data="{}"
 ^https:\/\/ggc\.miguvideo\.com\/v1\/iflyad\/deliverysystem\/direct\/ data-type=text data="{}"
 
 # > UC浏览器去开屏
+^https:\/\/qh-material\.taobao\.com\/ data-type=text data="{}"
+
+^https:\/\/p66-ad\.adkwai\.com\/udata\/pkg\/ data-type=text data="{}"
+
 ^https:\/\/huichuan\.sm\.cn\/nativead data-type=text data="{}"
 
 ^https:\/\/puds\.ucweb\.com\/upgrade data-type=text data="{}"
@@ -118,4 +122,4 @@ https?:\/\/helper\.2bulu\.com\/(greenPea\/queryTasks|proSpecial\/allData|saveSpl
 ^https?:\/\/interface\d?\.music\.163\.com\/e?api\/(ocpc\/)?ad\/ data-type=text data="{}" status-code=200
 
 [MITM]
-hostname = %APPEND% c-app.miguvideo.com, sdk-config.miguvideo.com, huichuan.sm.cn, apm-sdk.cmvideo.cn, sf6-fe-tos.pglstatp-toutiao.com, api-access.pangolin-sdk-toutiao1.com, ggc.miguvideo.com, thor.weidian.com, api-access.pangolin-sdk-toutiao.com, mi.gdt.qq.com, ad.12306.cn, helper.2bulu.com, dashi.163.com, appconf.mail.163.com, iobs.pingan.com.cn, m.360buyimg.com, ecssmobile.e-chinalife.com, midc.cdn-static.abchina.com.cn, interface3.music.163.com, gateway.kugou.com, acs.m.goofish.com, api.pinduoduo.com, www.xiaohongshu.com, m.ximalaya.com, goblin.hupu.com, client.app.coc.10086.cn, *.iqiyi.com
+hostname = %APPEND% qh-material.taobao.com, p66-ad.adkwai.com, c-app.miguvideo.com, sdk-config.miguvideo.com, huichuan.sm.cn, apm-sdk.cmvideo.cn, sf6-fe-tos.pglstatp-toutiao.com, api-access.pangolin-sdk-toutiao1.com, ggc.miguvideo.com, thor.weidian.com, api-access.pangolin-sdk-toutiao.com, mi.gdt.qq.com, ad.12306.cn, helper.2bulu.com, dashi.163.com, appconf.mail.163.com, iobs.pingan.com.cn, m.360buyimg.com, ecssmobile.e-chinalife.com, midc.cdn-static.abchina.com.cn, interface3.music.163.com, gateway.kugou.com, acs.m.goofish.com, api.pinduoduo.com, www.xiaohongshu.com, m.ximalaya.com, goblin.hupu.com, client.app.coc.10086.cn, *.iqiyi.com
