@@ -4,6 +4,15 @@
 
 [Rule]
 # > 本地软件去开屏广告
+DOMAIN,sdk-config.miguvideo.com,REJECT // 咪咕视频去开屏
+DOMAIN-SUFFIX,acs.migu.cn,REJECT // 咪咕视频去开屏
+DOMAIN,mgai.miguvideo.com,REJECT // 咪咕视频去开屏
+DOMAIN-SUFFIX,pangolin-sdk-toutiao1.com,REJECT // 咪咕视频去开屏
+DOMAIN-SUFFIX,pglstatp-toutiao.com,REJECT // 咪咕视频去开屏
+DOMAIN-SUFFIX,ctobsnssdk.com,REJECT // 咪咕视频去开屏
+DOMAIN,ggc.miguvideo.com,REJECT // 咪咕视频去开屏
+DOMAIN,ggc.cmvideo.cn,REJECT // 咪咕视频去开屏
+DOMAIN,pre-service-hn.cxkfwn.com,REJECT // 咪咕视频去开屏
 DOMAIN,sdk.e.qq.com,REJECT // 咪咕视频去广告
 DOMAIN-SUFFIX,ggx04.miguvideo.com,REJECT-TINYGIF // 咪咕视频去开屏
 DOMAIN-SUFFIX,ggx03.miguvideo.com,REJECT-TINYGIF // 咪咕视频去开屏
