@@ -1,1 +1,175 @@
-const a0_0x4d4bc4=a0_0x1953;(function(_0x4578bb,_0x38c2b9){const _0x586cb0=a0_0x1953,_0x5216da=_0x4578bb();while(!![]){try{const _0x508314=parseInt(_0x586cb0(0xce))/0x1*(parseInt(_0x586cb0(0xcf))/0x2)+parseInt(_0x586cb0(0xd0))/0x3*(parseInt(_0x586cb0(0xd1))/0x4)+parseInt(_0x586cb0(0xd2))/0x5*(parseInt(_0x586cb0(0xd3))/0x6)+parseInt(_0x586cb0(0xd4))/0x7*(parseInt(_0x586cb0(0xd5))/0x8)+parseInt(_0x586cb0(0xd6))/0x9*(parseInt(_0x586cb0(0xd7))/0xa)+parseInt(_0x586cb0(0xd8))/0xb*(parseInt(_0x586cb0(0xd9))/0xc)+parseInt(_0x586cb0(0xdb))/0xd*(-parseInt(_0x586cb0(0xdc))/0xe);if(_0x508314===_0x38c2b9)break;else _0x5216da['push'](_0x5216da['shift']());}catch(_0x3a26a7){_0x5216da['push'](_0x5216da['shift']());}}}(a0_0x2f75,0xab96e));function a0_0x1953(_0x566798,_0x3d1637){const _0x312c3d=a0_0x2f75();return a0_0x1953=function(_0x4a7d9f,_0x5bfeb7){_0x4a7d9f=_0x4a7d9f-0xce;let _0x42ad55=_0x312c3d[_0x4a7d9f];return _0x42ad55;},a0_0x1953(_0x566798,_0x3d1637);}function a0_0x2f75(){const _0x1a6ad2=['895IIHHHH','16002HHHIII','1253IIIIII','21336IIIIII','1611IIIIII','26670IIIIII','1969IIIIII','32004IIIIII','then','52IIIIII','7565348IIIIII','生日提醒','getdata','argument','args','error','includes','info=','match','log','🔔\x20接收到的配置数据:\x20','⚠️\x20未检测到配置数据，请在插件/模块参数中填写。','split','setDate','getDate','📅\x20明天的公历日期是:\x20','replace','length','trim','lmonth','toString','padStart','lday','❌\x20农历API查询失败:\x20','message','push','looon','🎂\x20明天\x20(',')\x20是\x20','生日！','msg','准备礼物了吗？','join','✅\x20明天没有人生日。','catch','name',',\x20错误:\x20','stack','finally','fetch','done','getMonth','getFullYear','https://api.jieqi.la/api/calendar?date=','Mozilla/5.0','get','parse','undefined','stringify','env','indexOf','GITHUB','exit','body','post','read','179IIIIII','5334IIIIII','537IIIIII','10668IIIIII'];a0_0x2f75=function(){return _0x1a6ad2;};return a0_0x2f75();}const $=new Env(a0_0x4d4bc4(0xdd));!(async()=>{const _0x4bb504=a0_0x4d4bc4;let _0x1953d2=$[_0x4bb504(0xde)](_0x4bb504(0xdf))||$[_0x4bb504(0xde)](_0x4bb504(0xe0))||'',_0x24820f='';if(_0x1953d2[_0x4bb504(0xe2)](_0x4bb504(0xe3))){const _0x1c1f61=_0x1953d2[_0x4bb504(0xe4)](/info=([^&]+)/);_0x1c1f61?_0x24820f=_0x1c1f61[0x1]:_0x24820f=_0x1953d2;}else _0x24820f=_0x1953d2;try{_0x24820f=decodeURIComponent(_0x24820f);}catch(_0x5c2e83){}console[_0x4bb504(0xe5)](_0x4bb504(0xe6)+_0x24820f);if(!_0x24820f){console[_0x4bb504(0xe5)](_0x4bb504(0xe7));return;}const _0xe2595d=_0x24820f[_0x4bb504(0xe8)](';'),_0x2f758f=[],_0x88e776=new Date(),_0x1eeaf1=new Date(_0x88e776);_0x1eeaf1[_0x4bb504(0xe9)](_0x88e776[_0x4bb504(0xea)]()+0x1);const _0x274d9e=formatDate(_0x1eeaf1);console[_0x4bb504(0xe5)](_0x4bb504(0xeb)+_0x274d9e);for(let _0xb5a06a of _0xe2595d){if(!_0xb5a06a)continue;_0xb5a06a=_0xb5a06a[_0x4bb504(0xec)](/，/g,',');let _0x21b680=_0xb5a06a[_0x4bb504(0xe8)](',');if(_0x21b680[_0x4bb504(0xed)]<0x3)continue;let _0x10dc78=_0x21b680[0x0][_0x4bb504(0xee)](),_0x2732fc=_0x21b680[0x1][_0x4bb504(0xee)](),_0x476d44=_0x21b680[0x2][_0x4bb504(0xee)](),_0x312972=![],_0x1060cd='';if(_0x2732fc==='0')_0x1060cd='公历',_0x476d44===_0x274d9e&&(_0x312972=!![]);else{if(_0x2732fc==='1'){_0x1060cd='农历';try{const _0x1dcb01=await getLunarInfo(_0x1eeaf1);if(_0x1dcb01){const _0x4799f7=_0x1dcb01[_0x4bb504(0xef)][_0x4bb504(0xf0)]()[_0x4bb504(0xf1)](0x2,'0'),_0x312c3d=_0x1dcb01[_0x4bb504(0xf2)][_0x4bb504(0xf0)]()[_0x4bb504(0xf1)](0x2,'0'),_0x3d1637=_0x4799f7+'-'+_0x312c3d;_0x3d1637===_0x476d44&&(_0x312972=!![]);}}catch(_0x566ac3){console[_0x4bb504(0xe5)](_0x4bb504(0xf3)+_0x566ac3[_0x4bb504(0xf4)]);}}}_0x312972&&_0x2f758f[_0x4bb504(0xf5)](_0x4bb504(0xf7)+_0x274d9e+_0x4bb504(0xf8)+_0x10dc78+'\x20的'+_0x1060cd+_0x4bb504(0xf9));}_0x2f758f[_0x4bb504(0xed)]>0x0?$[_0x4bb504(0xfa)](_0x4bb504(0xdd),_0x4bb504(0xfb),_0x2f758f[_0x4bb504(0xfc)]('\x0a')):console[_0x4bb504(0xe5)](_0x4bb504(0xfd));})()[a0_0x4d4bc4(0xfe)](_0x3d136c=>{const _0x5b06ee=a0_0x4d4bc4;$[_0x5b06ee(0xe5)]('','❌\x20'+$[_0x5b06ee(0xff)]+_0x5b06ee(0x100)+_0x3d136c[_0x5b06ee(0xf4)],_0x3d136c[_0x5b06ee(0x101)]);})[a0_0x4d4bc4(0x102)](()=>{const _0x2bb87a=a0_0x4d4bc4;$[_0x2bb87a(0x104)]();});function formatDate(_0x42aa8a){const _0x256425=a0_0x4d4bc4,_0x35f488=(_0x42aa8a[_0x256425(0x105)]()+0x1)[_0x256425(0xf0)]()[_0x256425(0xf1)](0x2,'0'),_0x4f48b5=_0x42aa8a[_0x256425(0xea)]()[_0x256425(0xf0)]()[_0x256425(0xf1)](0x2,'0');return _0x35f488+'-'+_0x4f48b5;}function getLunarInfo(_0x35f753){return new Promise(_0x306035=>{const _0x2c2482=a0_0x1953,_0x3c4d29=_0x35f753[_0x2c2482(0x106)](),_0x559e8b=_0x35f753[_0x2c2482(0x105)]()+0x1,_0x4a7d9f=_0x35f753[_0x2c2482(0xea)](),_0x566798=_0x2c2482(0x107)+_0x3c4d29+'-'+_0x559e8b+'-'+_0x4a7d9f,_0x33c813={'url':_0x566798,'headers':{'User-Agent':_0x2c2482(0x108)}};$[_0x2c2482(0x109)](_0x33c813,(_0x3fb20c,_0x59036e,_0x265a6d)=>{const _0x23d05a=_0x2c2482;try{if(_0x3fb20c)_0x306035(null);else _0x306035(JSON[_0x23d05a(0x10a)](_0x265a6d));}catch(_0x29b4fa){_0x306035(null);}});});}function Env(_0x2f4c19,_0x15fab7){const _0xd73ec6=a0_0x4d4bc4;_0xd73ec6(0x10b)!=typeof process&&JSON[_0xd73ec6(0x10c)](process[_0xd73ec6(0x10d)])[_0xd73ec6(0x10e)](_0xd73ec6(0x10f))>-0x1&&process[_0xd73ec6(0x110)](0x0);class _0x42ad55{constructor(_0x106398){const _0x10a16c=_0xd73ec6;this[_0x10a16c(0x10d)]=_0x106398;}[_0xd73ec6(0xfa)](_0x1dce2b,_0x33f7a3,_0x14f499){const _0x13c841=_0xd73ec6;_0x13c841(0x10b)!=typeof $notify?$notify(_0x1dce2b,_0x33f7a3,_0x14f499):_0x13c841(0x10b)!=typeof $notification&&$notification[_0x13c841(0x112)](_0x1dce2b,_0x33f7a3,_0x14f499);}[_0xd73ec6(0xde)](_0xd3942f){const _0xe9d2ad=_0xd73ec6;if(_0xe9d2ad(0x10b)!=typeof $argument)return $argument;if(_0xe9d2ad(0x10b)!=typeof $surname){if(arguments[_0xe9d2ad(0xed)]>0x1)return $surname[_0xe9d2ad(0x113)](_0xd3942f);{const _0x1aa36a=$surname[_0xe9d2ad(0x113)](_0xd3942f);return _0x1aa36a?JSON[_0xe9d2ad(0x10a)](_0x1aa36a):null;}}return _0xe9d2ad(0x10b)!=typeof $looon?this[_0xe9d2ad(0xf6)](_0xd3942f):null;}[_0xd73ec6(0x109)](_0x14c1f0,_0x33f478){const _0x2b03c7=_0xd73ec6;_0x2b03c7(0x10b)!=typeof $task?$task[_0x2b03c7(0x103)](_0x14c1f0)[_0x2b03c7(0xda)](_0x3fde72=>{const _0x116a5e=_0x2b03c7;_0x33f478(null,_0x3fde72,_0x3fde72[_0x116a5e(0x111)]);},_0x5932f2=>{const _0xd009f5=_0x2b03c7;_0x33f478(_0x5932f2[_0xd009f5(0xe1)],null,null);}):_0x2b03c7(0x10b)!=typeof $httpClient&&$httpClient[_0x2b03c7(0x109)](_0x14c1f0,_0x33f478);}['log'](_0x3fe19c){console['log'](_0x3fe19c);}['done'](){console['log']('DONE');}}return new _0x42ad55(_0x2f4c19,_0x15fab7);}
+/*
+ * 生日提醒脚本 (v5.0 倒计时版)
+ * * 新增功能：支持自定义提前几天通知 (默认1天)
+ * * 逻辑：在设置的天数范围内，每天都会弹窗提示倒计时
+ * * * * 参数填写说明:
+ * 格式：名字@类型@日期
+ * 示例：老婆@1@10-13
+ */
+
+// ==================== 1. 农历算法核心 (优先加载) ====================
+const lunarInfo = [
+    0x04bd8, 0x04ae0, 0x0a570, 0x054d5, 0x0d260, 0x0d950, 0x16554, 0x056a0, 0x09ad0, 0x055d2,
+    0x04ae0, 0x0a5b6, 0x0a4d0, 0x0d250, 0x1d255, 0x0b540, 0x0d6a0, 0x0ada2, 0x095b0, 0x14977,
+    0x04970, 0x0a4b0, 0x0b4b5, 0x06a50, 0x06d40, 0x1ab54, 0x02b60, 0x09570, 0x052f2, 0x04970,
+    0x06566, 0x0d4a0, 0x0ea50, 0x06e95, 0x05ad0, 0x02b60, 0x186e3, 0x092e0, 0x1c8d7, 0x0c950,
+    0x0d4a0, 0x1d8a6, 0x0b550, 0x056a0, 0x1a5b4, 0x025d0, 0x092d0, 0x0d2b2, 0x0a950, 0x0b557,
+    0x06ca0, 0x0b550, 0x15355, 0x04da0, 0x0a5d0, 0x14573, 0x052d0, 0x0a9a8, 0x0e950, 0x06aa0,
+    0x0aea6, 0x0ab50, 0x04b60, 0x0aae4, 0x0a570, 0x05260, 0x0f263, 0x0d950, 0x05b57, 0x056a0,
+    0x096d0, 0x04dd5, 0x04ad0, 0x0a4d0, 0x0d4d4, 0x0d250, 0x0d558, 0x0b540, 0x0b5a0, 0x195a6,
+    0x095b0, 0x049b0, 0x0a974, 0x0a4b0, 0x0b27a, 0x06a50, 0x06d40, 0x0af46, 0x0ab60, 0x09570,
+    0x04af5, 0x04970, 0x064b0, 0x074a3, 0x0ea50, 0x06b58, 0x055c0, 0x0ab60, 0x096d5, 0x092e0,
+    0x0c960, 0x0d954, 0x0d4a0, 0x0da50, 0x07552, 0x056a0, 0x0abb7, 0x025d0, 0x092d0, 0x0cab5,
+    0x0a950, 0x0b4a0, 0x0baa4, 0x0ad50, 0x055d9, 0x04ba0, 0x0a5b0, 0x15176, 0x052b0, 0x0a930,
+    0x07954, 0x06aa0, 0x0ad50, 0x05b52, 0x04b60, 0x0a6e6, 0x0a4e0, 0x0d260, 0x0ea65, 0x0d530,
+    0x05aa0, 0x076a3, 0x096d0, 0x04bd7, 0x04ad0, 0x0a4d0, 0x1d0b6, 0x0d250, 0x0d520, 0x0dd45,
+    0x0b5a0, 0x056d0, 0x055b2, 0x049b0, 0x0a577, 0x0a4b0, 0x0aa50, 0x1b255, 0x06d20, 0x0ada0
+];
+
+function getLeapMonth(year) { return lunarInfo[year - 1900] & 0xf; }
+function getMonthDays(year, month) { return (month > 12 || month < 1) ? 0 : (lunarInfo[year - 1900] & (0x10000 >> month)) ? 30 : 29; }
+function getLunarYearDays(year) {
+    let sum = 348;
+    for (let i = 0x8000; i > 0x8; i >>= 1) sum += (lunarInfo[year - 1900] & i) ? 1 : 0;
+    return sum + getLeapDays(year);
+}
+function getLeapDays(year) { return getLeapMonth(year) ? ((lunarInfo[year - 1900] & 0x10000) ? 30 : 29) : 0; }
+function solarToLunar(date) {
+    const year = date.getFullYear();
+    if (year < 1900 || year > 2099) return null;
+    const baseDate = new Date(1900, 0, 31);
+    let offset = Math.floor((date.getTime() - baseDate.getTime()) / 86400000);
+    let lunarYear = 1900;
+    let daysInLunarYear = getLunarYearDays(lunarYear);
+    while(lunarYear < 2100 && offset >= daysInLunarYear) {
+        offset -= daysInLunarYear;
+        lunarYear++;
+        daysInLunarYear = getLunarYearDays(lunarYear);
+    }
+    let lunarMonth = 1;
+    let isLeap = false;
+    const leapMonth = getLeapMonth(lunarYear);
+    for (let m = 1; m <= 12; m++) {
+        if (leapMonth > 0 && m == (leapMonth + 1) && !isLeap) {
+            --m; isLeap = true;
+            let leapDays = getLeapDays(lunarYear);
+            if (offset < leapDays) { lunarMonth = m; break; }
+            offset -= leapDays;
+        } else {
+            let monthDays = getMonthDays(lunarYear, m);
+            if (offset < monthDays) { lunarMonth = m; break; }
+            offset -= monthDays;
+        }
+    }
+    return { year: lunarYear, month: lunarMonth, day: offset + 1 };
+}
+
+// ==================== 2. 主程序 ====================
+
+const $ = new Env("生日提醒");
+
+!(async () => {
+    // --- 1. 参数解析 ---
+    let rawArgs = $.getdata("argument") || $.getdata("args") || "";
+    let configStr = "";
+    let advanceDays = 1; // 默认提前1天
+
+    // 智能解析参数 (支持 info=xx&advance=3 或 纯文本)
+    const getArg = (key, text) => {
+        const regex = new RegExp(`${key}=([^&]+)`);
+        const match = text.match(regex);
+        return match ? decodeURIComponent(match[1]) : null;
+    };
+
+    if (rawArgs.includes("info=")) {
+        configStr = getArg("info", rawArgs);
+        const advArg = getArg("advance", rawArgs);
+        if (advArg) advanceDays = parseInt(advArg);
+    } else {
+        configStr = rawArgs;
+    }
+
+    try { configStr = decodeURIComponent(configStr); } catch(e) {}
+
+    console.log(`🔔 参数配置: [提前 ${advanceDays} 天] | 数据: ${configStr}`);
+
+    if (!configStr) {
+        console.log("⚠️ 未检测到生日数据，请检查模块参数！");
+        return;
+    }
+    
+    const items = configStr.split(/;|\\n/); 
+    const notifications = [];
+    const today = new Date();
+
+    // --- 2. 循环未来 N 天进行检查 ---
+    console.log(`📅 开始检查未来 ${advanceDays} 天的生日...`);
+
+    // i 表示距离今天的天数 (1=明天, 2=后天...)
+    for (let i = 1; i <= advanceDays; i++) {
+        const futureDate = new Date(today);
+        futureDate.setDate(today.getDate() + i);
+        const futureDateStr = formatDate(futureDate);
+
+        // 计算这天的农历缓存
+        let lunarCache = null;
+        try { lunarCache = solarToLunar(futureDate); } catch(e) {}
+
+        for (let item of items) {
+            if (!item) continue;
+            let parts = item.split(/,|@|，/);
+            if (parts.length < 3) continue;
+
+            let name = parts[0].trim();
+            let type = parts[1].trim(); // 0=公历, 1=农历
+            let targetDate = parts[2].trim();
+            // 修正符号
+            targetDate = targetDate.replace(/[\uff0d\u2212\u2014\u2013\.\/]/g, '-');
+            
+            let isMatch = false;
+            let matchTypeStr = "";
+
+            if (type === "0") {
+                // 公历比对
+                if (targetDate === futureDateStr) {
+                    isMatch = true;
+                    matchTypeStr = "公历";
+                }
+            } else if (type === "1" && lunarCache) {
+                // 农历比对
+                const lunStr = `${lunarCache.month.toString().padStart(2,'0')}-${lunarCache.day.toString().padStart(2,'0')}`;
+                if (lunStr === targetDate) {
+                    isMatch = true;
+                    matchTypeStr = `农历(${lunStr})`;
+                }
+            }
+
+            if (isMatch) {
+                console.log(`🎉 匹配: ${name} 在 ${i} 天后过生日`);
+                notifications.push(`🎂 ${name} 还有 ${i} 天过生日！\n📅 日期: ${futureDateStr} ${matchTypeStr}`);
+            }
+        }
+    }
+
+    // --- 3. 推送结果 ---
+    if (notifications.length > 0) {
+        // 去重 (防止同一个人同一天配置多次)
+        let uniqueNotes = [...new Set(notifications)];
+        $.msg("生日提醒 🎂", "近期有朋友要过生日啦", uniqueNotes.join("\n\n"));
+    } else {
+        console.log("✅ 未来几天内没有人生日。");
+    }
+
+})().catch((e) => {
+    $.log('', `❌ 错误: ${e.message}`);
+}).finally(() => {
+    $.done();
+});
+
+function formatDate(date) {
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    return `${m}-${d}`;
+}
+
+function Env(t,e){"undefined"!=typeof process&&JSON.stringify(process.env).indexOf("GITHUB")>-1&&process.exit(0);class s{constructor(t){this.env=t}msg(t,e,s){"undefined"!=typeof $notify?$notify(t,e,s):"undefined"!=typeof $notification&&$notification.post(t,e,s)}getdata(t){if("undefined"!=typeof $argument)return $argument;if("undefined"!=typeof $surname){if(arguments.length>1)return $surname.read(t);{const e=$surname.read(t);return e?JSON.parse(e):null}}return"undefined"!=typeof $looon?this.looon(t):null}get(t,e){"undefined"!=typeof $task?$task.fetch(t).then(t=>{e(null,t,t.body)},t=>{e(t.error,null,null)}):"undefined"!=typeof $httpClient&&$httpClient.get(t,e)}log(t){console.log(t)}done(t={}){const e=(new Date).getTime(),s=(e-this.startTime)/1e3;this.log("",`🔔${this.name}, 结束! 🕛 ${s} 秒`),"undefined"!=typeof $done&&$done(t)}}return new s(t,e)}
