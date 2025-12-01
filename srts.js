@@ -1,6 +1,6 @@
 /*
- * 生日提醒脚本 (v6.2 最终修正版)
- * 适配简化后的参数格式 argument="data={text}&days={days}"
+ * 生日提醒脚本 (v6.5 避坑版)
+ * 解决分号截断问题，支持逗号/加号分隔
  */
 
 const $ = new Env("生日提醒");
@@ -10,45 +10,47 @@ const lunarInfo=[0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0
 function solarToLunar(e){const o=e.getFullYear();if(o<1900||o>2099)return null;const t=new Date(1900,0,31);let n=Math.floor((e.getTime()-t.getTime())/864e5),a=1900,r=function(e){let o=348;for(let t=32768;t>8;t>>=1)o+=(lunarInfo[e-1900]&t)?1:0;return o+function(e){return(lunarInfo[e-1900]&15)?(lunarInfo[e-1900]&65536)?30:29:0}(e)}(a);for(;a<2100&&n>=r;)n-=r,a++,r=function(e){let o=348;for(let t=32768;t>8;t>>=1)o+=(lunarInfo[e-1900]&t)?1:0;return o+function(e){return(lunarInfo[e-1900]&15)?(lunarInfo[e-1900]&65536)?30:29:0}(e)}(a);let l=1,s=!1,i=lunarInfo[a-1900]&15;for(let e=1;e<=12;e++){if(i>0&&e==i+1&&!s){--e,s=!0;let o=function(e){return(lunarInfo[e-1900]&15)?(lunarInfo[e-1900]&65536)?30:29:0}(a);if(n<o){l=e;break}n-=o}else{let o=function(e,o){return o>12||o<1?0:(lunarInfo[e-1900]&65536>>o)?30:29}(a,e);if(n<o){l=e;break}n-=o}}return{year:a,month:l,day:n+1}}
 
 !(async () => {
+    // 1. 获取参数
     let rawArgs = (typeof $argument != "undefined") ? $argument : "";
     console.log(`🔍 调试: 参数 = [${rawArgs}]`);
 
     let configStr = "";
     let advanceDays = 3;
 
-    // 1. 提取天数 (匹配 days=3 或 advance=3)
-    let advMatch = rawArgs.match(/(?:days|advance)=(\d+)/);
+    // 2. 解析 (宽容模式)
+    // 提取天数
+    let advMatch = rawArgs.match(/advance=(\d+)/);
     if (advMatch) advanceDays = parseInt(advMatch[1]);
 
-    // 2. 提取数据
-    // 优先匹配 data=xxx 格式
-    let dataMatch = rawArgs.match(/data=([^&]+)/);
-    if (dataMatch) {
-        configStr = dataMatch[1];
-    } else {
-        // 如果没有 data=，尝试直接找含有 @ 的部分
-        if (rawArgs.includes("@")) {
-             configStr = rawArgs.replace(/(?:days|advance)=\d+/, "").replace(/&/g, "").trim();
-             // 清理掉可能的 key 前缀
-             configStr = configStr.replace(/^(?:info|data)=/, "");
-        }
+    // 提取数据
+    // 优先匹配 info=
+    let infoMatch = rawArgs.match(/info=([^&]+)/);
+    if (infoMatch) {
+        configStr = infoMatch[1];
+    } else if (rawArgs.includes("@")) {
+        // 暴力匹配：只要有@，就去掉 advance=xxx 剩下的全是数据
+        configStr = rawArgs.replace(/advance=\d+/, "").replace(/&/g, "").trim();
     }
 
-    // 3. 解码与清洗
+    // 3. 关键：URL解码 + 清洗
     try { configStr = decodeURIComponent(configStr); } catch(e) {}
-    // 去掉可能的双引号
-    configStr = configStr.replace(/"/g, "").trim();
+    // 去掉 key 前缀，去掉可能的引号
+    configStr = configStr.replace(/^info=/, "").replace(/"/g, "").trim();
 
     // 4. 最终检查
-    if (!configStr || configStr.includes("{text}") || configStr.includes("{birthday_data}")) {
-        console.log("❌ 严重错误: Loon 变量替换失败！请检查插件配置 Argument 是否对应。");
-        configStr = "演示账号@0@01-01"; 
+    // 如果 configStr 包含 "{birthday_data}"，说明 Loon 还是没替换成功
+    if (!configStr || configStr.includes("{birthday_data}")) {
+        console.log("❌ 错误：参数替换失败！");
+        console.log("💡 请尝试在 Loon 配置中，将多分号 ';' 替换为 逗号 ',' 或 加号 '+'");
+        configStr = "示例账号@0@01-01"; 
     }
 
     console.log(`🔔 启动: 提前${advanceDays}天 | 数据: ${configStr}`);
 
     // ==================== 逻辑处理 ====================
-    const items = configStr.split(/;|；/);
+    // ⚠️ 支持多种分隔符：分号、逗号、加号、空格
+    const items = configStr.split(/[;；,，\+\s|]+/);
+    
     const notifications = [];
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -60,6 +62,10 @@ function solarToLunar(e){const o=e.getFullYear();if(o<1900||o>2099)return null;c
         let lunarCache = null; 
 
         for (let item of items) {
+            // 清理每一项，防止空项
+            item = item.trim();
+            if (!item) continue;
+
             let parts = item.split(/@|，|,/);
             if (parts.length >= 3) {
                 let name = parts[0].trim();
