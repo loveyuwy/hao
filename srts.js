@@ -1,13 +1,30 @@
 /*
- * 生日提醒脚本 (v5.0 倒计时版)
- * * 新增功能：支持自定义提前几天通知 (默认1天)
- * * 逻辑：在设置的天数范围内，每天都会弹窗提示倒计时
- * * * * 参数填写说明:
+ * 生日提醒脚本 (v5.1 全能版)
+ * * 功能：
+ * 1. 支持公历 (0) 和 农历 (1)
+ * 2. 支持自定义倒计时天数 (默认提前3天)
+ * 3. 当天生日会有特殊提醒
+ * 4. 兼容 Surge, Loon, Quantumult X
+ *
+ * ========== 配置说明 ==========
  * 格式：名字@类型@日期
- * 示例：老婆@1@10-13
+ * 类型：0=公历, 1=农历
+ * 日期格式：MM-DD (例如 10-13)
+ * * 填写示例 (多个人用分号 ; 隔开)：
+ * 老婆@1@10-13;老妈@0@05-20;死党@1@08-15
+ *
+ * ========== 参数填写位置 ==========
+ * Surge: 脚本 -> Argument: info=名字@类型@日期&advance=3
+ * Loon: 脚本 -> argument: info=名字@类型@日期&advance=3
+ * QX: 无法直接传参，建议在代码顶部 const forcedConfig 中直接填入，或使用 $prefs 配合 BoxJs。
  */
 
-// ==================== 1. 农历算法核心 (优先加载) ====================
+// 如果你是 QX 用户且不想用 BoxJs，请直接在这里填入字符串，例如 "老婆@1@10-13"
+const forcedConfig = ""; 
+// 默认提前几天提醒
+const defaultAdvance = 3; 
+
+// ==================== 1. 农历算法核心 ====================
 const lunarInfo = [
     0x04bd8, 0x04ae0, 0x0a570, 0x054d5, 0x0d260, 0x0d950, 0x16554, 0x056a0, 0x09ad0, 0x055d2,
     0x04ae0, 0x0a5b6, 0x0a4d0, 0x0d250, 0x1d255, 0x0b540, 0x0d6a0, 0x0ada2, 0x095b0, 0x14977,
@@ -70,11 +87,15 @@ const $ = new Env("生日提醒");
 
 !(async () => {
     // --- 1. 参数解析 ---
-    let rawArgs = $.getdata("argument") || $.getdata("args") || "";
-    let configStr = "";
-    let advanceDays = 1; // 默认提前1天
+    // 优先读取 Argument，其次 forcedConfig
+    let rawArgs = "";
+    if (typeof $argument !== "undefined") rawArgs = $argument;
+    else if (typeof $ops !== "undefined") rawArgs = $ops; // Loon 某些版本
+    else rawArgs = forcedConfig;
 
-    // 智能解析参数 (支持 info=xx&advance=3 或 纯文本)
+    let configStr = "";
+    let advanceDays = defaultAdvance;
+
     const getArg = (key, text) => {
         const regex = new RegExp(`${key}=([^&]+)`);
         const match = text.match(regex);
@@ -86,6 +107,7 @@ const $ = new Env("生日提醒");
         const advArg = getArg("advance", rawArgs);
         if (advArg) advanceDays = parseInt(advArg);
     } else {
+        // 兼容只填数据不填 key 的情况
         configStr = rawArgs;
     }
 
@@ -95,25 +117,27 @@ const $ = new Env("生日提醒");
 
     if (!configStr) {
         console.log("⚠️ 未检测到生日数据，请检查模块参数！");
+        // QX 用户如果没有配置，给个提示
+        if ($.isQuanX()) $.msg("生日提醒", "配置缺失", "请在脚本内 forcedConfig 填写数据或使用 BoxJs");
         return;
     }
     
     const items = configStr.split(/;|\\n/); 
     const notifications = [];
     const today = new Date();
+    today.setHours(0,0,0,0); // 归零时间，确保计算准确
 
-    // --- 2. 循环未来 N 天进行检查 ---
-    console.log(`📅 开始检查未来 ${advanceDays} 天的生日...`);
+    // --- 2. 循环检查 (从 0=今天 开始) ---
+    console.log(`📅 开始检查 今天 及未来 ${advanceDays} 天的生日...`);
 
-    // i 表示距离今天的天数 (1=明天, 2=后天...)
-    for (let i = 1; i <= advanceDays; i++) {
-        const futureDate = new Date(today);
-        futureDate.setDate(today.getDate() + i);
-        const futureDateStr = formatDate(futureDate);
+    for (let i = 0; i <= advanceDays; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(today.getDate() + i);
+        const checkDateStr = formatDate(checkDate);
 
         // 计算这天的农历缓存
         let lunarCache = null;
-        try { lunarCache = solarToLunar(futureDate); } catch(e) {}
+        try { lunarCache = solarToLunar(checkDate); } catch(e) {}
 
         for (let item of items) {
             if (!item) continue;
@@ -131,7 +155,7 @@ const $ = new Env("生日提醒");
 
             if (type === "0") {
                 // 公历比对
-                if (targetDate === futureDateStr) {
+                if (targetDate === checkDateStr) {
                     isMatch = true;
                     matchTypeStr = "公历";
                 }
@@ -145,19 +169,32 @@ const $ = new Env("生日提醒");
             }
 
             if (isMatch) {
-                console.log(`🎉 匹配: ${name} 在 ${i} 天后过生日`);
-                notifications.push(`🎂 ${name} 还有 ${i} 天过生日！\n📅 日期: ${futureDateStr} ${matchTypeStr}`);
+                console.log(`🎉 匹配: ${name} (i=${i})`);
+                if (i === 0) {
+                     notifications.push(`🎂 今天是 ${name} 的生日！\n📅 日期: ${checkDateStr} ${matchTypeStr}`);
+                } else {
+                     notifications.push(`⏳ ${name} 还有 ${i} 天过生日\n📅 日期: ${checkDateStr} ${matchTypeStr}`);
+                }
             }
         }
     }
 
     // --- 3. 推送结果 ---
     if (notifications.length > 0) {
-        // 去重 (防止同一个人同一天配置多次)
+        // 去重
         let uniqueNotes = [...new Set(notifications)];
-        $.msg("生日提醒 🎂", "近期有朋友要过生日啦", uniqueNotes.join("\n\n"));
+        // 标题动态变化
+        let title = "生日提醒 🎂";
+        let sub = "近期寿星名单";
+        // 如果有今天生日的，标题加强
+        if (uniqueNotes.some(n => n.includes("今天是"))) {
+            title = "🎂 生日快乐！";
+            sub = "今天有人过生日啦";
+        }
+        
+        $.msg(title, sub, uniqueNotes.join("\n\n"));
     } else {
-        console.log("✅ 未来几天内没有人生日。");
+        console.log("✅ 近期无人生日。");
     }
 
 })().catch((e) => {
@@ -172,4 +209,24 @@ function formatDate(date) {
     return `${m}-${d}`;
 }
 
-function Env(t,e){"undefined"!=typeof process&&JSON.stringify(process.env).indexOf("GITHUB")>-1&&process.exit(0);class s{constructor(t){this.env=t}msg(t,e,s){"undefined"!=typeof $notify?$notify(t,e,s):"undefined"!=typeof $notification&&$notification.post(t,e,s)}getdata(t){if("undefined"!=typeof $argument)return $argument;if("undefined"!=typeof $surname){if(arguments.length>1)return $surname.read(t);{const e=$surname.read(t);return e?JSON.parse(e):null}}return"undefined"!=typeof $looon?this.looon(t):null}get(t,e){"undefined"!=typeof $task?$task.fetch(t).then(t=>{e(null,t,t.body)},t=>{e(t.error,null,null)}):"undefined"!=typeof $httpClient&&$httpClient.get(t,e)}log(t){console.log(t)}done(t={}){const e=(new Date).getTime(),s=(e-this.startTime)/1e3;this.log("",`🔔${this.name}, 结束! 🕛 ${s} 秒`),"undefined"!=typeof $done&&$done(t)}}return new s(t,e)}
+// 兼容 Surge/Loon/QX 的 Polyfill
+function Env(name) {
+    return new class {
+        constructor(name) { this.name = name; }
+        isQuanX() { return typeof $task !== "undefined"; }
+        isSurge() { return typeof $httpClient !== "undefined" && typeof $loon === "undefined"; }
+        isLoon() { return typeof $loon !== "undefined"; }
+        getdata(key) {
+            if (this.isSurge() || this.isLoon()) return $argument;
+            if (this.isQuanX()) return $prefs.valueForKey(key);
+            return null;
+        }
+        msg(title, subtitle, body) {
+            if (this.isSurge() || this.isLoon()) $notification.post(title, subtitle, body);
+            if (this.isQuanX()) $notify(title, subtitle, body);
+            console.log(`\n${title}\n${subtitle}\n${body}`);
+        }
+        log(val) { console.log(val); }
+        done(val = {}) { $done(val); }
+    }(name);
+}
