@@ -184,9 +184,9 @@ class CaishowWidget extends DmYY {
       }, { name: 'trash.fill', color: '#ff3b30', desc: '修复所有问题' });
     }
   }
-     async updateScript() {
+  async updateScript() {
     // 【重要】请将下面的链接替换为你第一步获取到的 GitHub Raw 链接
-    const scriptURL = "https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/cytqzyxzj.js";
+    const scriptURL = "https://raw.githubusercontent.com/你的用户名/你的仓库/main/你的脚本名.js";
     
     const notify = new Notification();
     notify.title = "脚本更新";
@@ -196,20 +196,28 @@ class CaishowWidget extends DmYY {
       const req = new Request(scriptURL);
       const code = await req.loadString();
       
-      // 简单校验一下下载的是不是代码（防止下载到404页面）
+      // 简单校验
       if (code.includes("CaishowWidget") || code.includes("Scriptable")) {
-        const fm = FileManager.iCloud().bookmarkedPath ? FileManager.iCloud() : FileManager.local();
-        // 获取当前脚本的路径
-        const path = module.filename;
+        // --- 修复部分：更安全的 FileManager 获取方式 ---
+        let fm = FileManager.local();
+        try {
+            // 如果 iCloud 可用且脚本在 iCloud 目录中，则使用 iCloud
+            const cloud = FileManager.iCloud(); 
+            if (cloud.isActive() && module.filename.includes(cloud.documentsDirectory())) {
+                fm = cloud;
+            }
+        } catch(e) {
+            // 如果判断出错，静默回退到 local，不报错
+        }
+        // ---------------------------------------------
         
-        // 写入新代码
+        const path = module.filename;
         fm.writeString(path, code);
         
         notify.body = "✅ 更新成功！请重新运行脚本以生效。";
         await notify.schedule();
         console.log("更新成功");
         
-        // 尝试重新加载
         const action = new Alert();
         action.title = "更新成功";
         action.message = "新版本已覆盖，请点击确定重新运行脚本。";
@@ -231,6 +239,7 @@ class CaishowWidget extends DmYY {
       await failAlert.presentAlert();
     }
   }
+
 
 
   // Legacy entry point removed, functions called directly
