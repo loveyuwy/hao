@@ -1,5 +1,5 @@
 // ↓↓↓↓↓↓↓↓↓ 这里是版本号，以后发布新版修改这里 ↓↓↓↓↓↓↓↓↓
-const ScriptVersion = "2.0.0";
+const ScriptVersion = "1.0.0";
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 if (typeof require === 'undefined') require = importModule;
