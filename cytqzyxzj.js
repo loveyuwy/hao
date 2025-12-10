@@ -165,9 +165,7 @@ class CaishowWidget extends DmYY {
 
 
   Run() {
-    if (config.runsInApp) {
-      this.registerAction("检查更新", async () => { await this.updateScript() }, { name: 'cloud.fill', color: '#007aff', desc: `当前版本 v${ScriptVersion}` });
-      
+    if (config.runsInApp) {      
       this.registerAction("基础设置", async () => { await this.setBasicConfig(); }, { name: 'gearshape.fill', color: '#007aff', desc: '定位、API、刷新频率' });
       
       this.registerAction("第一套（三天天气）", async () => { await this.handleStyleSettingsMenu("s1") }, { name: 'doc.text.image', color: '#FF9500', desc: '第一套 (经典)' });
@@ -183,6 +181,7 @@ class CaishowWidget extends DmYY {
         const idx = await a.presentAlert();
         if(idx===0){ ConfigManager.clear(); this.settings = Object.assign({}, this.defaultData); ConfigManager.save(this.settings); this.notify("已重置", "请重新运行脚本"); }
       }, { name: 'trash.fill', color: '#ff3b30', desc: '修复所有问题' });
+            this.registerAction("检查更新", async () => { await this.updateScript() }, { name: 'cloud.fill', color: '#007aff', desc: `当前版本 v${ScriptVersion}` });
     }
   }
 
