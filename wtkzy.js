@@ -1,6 +1,4 @@
-// ↓↓↓↓↓↓↓↓↓ 这里是版本号，以后发布新版修改这里 ↓↓↓↓↓↓↓↓↓
 const ScriptVersion = "1.0.0";
-// ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 if (typeof require === 'undefined') require = importModule;
 const { DmYY, Runing } = require('./DmYY');
@@ -143,18 +141,18 @@ class CaishowWidget extends DmYY {
     }
     
     this.defaultData[`s1_space_week_w`] = "30";
-    this.defaultData[`s1_space_cal_w`] = "27.2";
+    this.defaultData[`s1_space_cal_w`] = "29.2";
     
     this.defaultData[`s2_space_week_w`] = "30";
-    this.defaultData[`s2_space_cal_w`] = "27.2";
+    this.defaultData[`s2_space_cal_w`] = "29.2";
 
     this.defaultData[`s3_space_week_w`] = "9";
-    this.defaultData[`s3_space_cal_w`] = "6.3";
+    this.defaultData[`s3_space_cal_w`] = "8.3";
     this.defaultData[`s3_space_cal_h`] = "0";
     this.defaultData[`s3_space_holiday_h`] = "4"; 
 
     this.defaultData[`s4_space_week_w`] = "9";
-    this.defaultData[`s4_space_cal_w`] = "6.3";
+    this.defaultData[`s4_space_cal_w`] = "8.3";
     this.defaultData[`s4_space_cal_h`] = "0";
     this.defaultData[`s4_space_schedule_h`] = "0"; 
     this.defaultData[`s4_schedule_count`] = "4"; 
@@ -186,15 +184,16 @@ class CaishowWidget extends DmYY {
             this.registerAction("检查更新", async () => { await this.updateScript() }, { name: 'cloud.fill', color: '#007aff', desc: `当前版本 v${ScriptVersion}` });
     }
   }
-
-  async updateScript() {
+    async updateScript() {
     const url = "https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/wtkzy.js";
     const a = new Alert();
+    
     try {
         const req = new Request(url);
         const html = await req.loadString();
         
-        // 提取远程代码中的版本号
+        // 使用正则提取远程代码中的 ScriptVersion
+        // 允许 const ScriptVersion="x.x.x"; 或 const ScriptVersion = "x.x.x";
         const versionMatch = html.match(/const\s+ScriptVersion\s*=\s*["'](.*?)["']/);
         const remoteVersion = versionMatch ? versionMatch[1] : null;
 
@@ -243,6 +242,8 @@ class CaishowWidget extends DmYY {
         this.notify("更新失败", "下载的内容似乎不正确");
      }
   }
+
+  // Old layout menu removed
 
   async handleStyleSettingsMenu(prefix) {
     let pName = "经典";
@@ -1114,14 +1115,14 @@ class CaishowWidget extends DmYY {
     let colGap, rowGap;
 
     if (this.activePrefix === "s3_" || this.activePrefix === "s4_") {
-        colGap = parseFloat(this.settings[`${this.activePrefix}space_cal_w`] || 6.3);
+        colGap = parseFloat(this.settings[`${this.activePrefix}space_cal_w`] || 8.3);
         rowGap = parseFloat(this.settings[`${this.activePrefix}space_cal_h`] || 0);
     } else {
-        colGap = parseFloat(this.settings[`${this.activePrefix}space_cal_w`] || 27.2);
+        colGap = parseFloat(this.settings[`${this.activePrefix}space_cal_w`] || 29.2);
         rowGap = parseFloat(this.settings[`${this.activePrefix}space_cal_h`] || 3);
     }
 
-    let cellSz = this.s(27,"calendar");
+    let cellSz = this.s(25,"calendar");
 
     for(let w=0; w<grid.length; w++) {
       let row = stack.addStack(); 
@@ -1137,14 +1138,14 @@ class CaishowWidget extends DmYY {
           if(isToday) {
             let circle = top.addStack(); circle.size = new Size(this.s(16,"calendar"), this.s(16,"calendar")); circle.cornerRadius = this.s(8,"calendar");
             circle.backgroundColor = new Color("#ffcc00"); circle.centerAlignContent();
-            let dt = circle.addText(day.toString()); dt.font = Font.boldSystemFont(this.s(12,"calendar")); dt.textColor = Color.black();
+            let dt = circle.addText(day.toString()); dt.font = Font.boldSystemFont(this.s(14,"calendar")); dt.textColor = Color.black();
           } else {
-            let dt = top.addText(day.toString()); dt.font = Font.boldSystemFont(this.s(12,"calendar"));
+            let dt = top.addText(day.toString()); dt.font = Font.boldSystemFont(this.s(14,"calendar"));
             dt.textColor = isWk ? new Color("#ff5555") : this.getConfColor("calendar");
           }
           let lunar = this.getLunarDate_Precise(dateObj); let term = getSolarTerm(dateObj);
           let lStack = c.addStack(); lStack.setPadding(-1,1.5,0,0); lStack.centerAlignContent();
-          let lt = lStack.addText(term || lunar.day); lt.font = Font.systemFont(this.s(8,"calendar"));
+          let lt = lStack.addText(term || lunar.day); lt.font = Font.systemFont(this.s(9,"calendar"));
           lt.textColor = new Color(this.getConfColor("calendar").hex, 0.7);
         }
         if(i<6) row.addSpacer(colGap);
