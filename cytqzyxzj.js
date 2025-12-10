@@ -1,3 +1,7 @@
+// ↓↓↓↓↓↓↓↓↓ 这里是版本号，以后发布新版修改这里 ↓↓↓↓↓↓↓↓↓
+const ScriptVersion = "2.0.0";
+// ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+
 if (typeof require === 'undefined') require = importModule;
 const { DmYY, Runing } = require('./DmYY');
 
@@ -79,7 +83,6 @@ const baseConfigKeys = {
     color_bg: "#000000",
     color_bg_2: "", 
     
-    // Day/Night specific (defaults empty, fallback to normal)
     color_bg_day: "",
     color_bg_2_day: "",
     color_bg_night: "",
@@ -163,12 +166,10 @@ class CaishowWidget extends DmYY {
 
   Run() {
     if (config.runsInApp) {
-      // 插入更新按键
-      this.registerAction("更新脚本", async () => { await this.updateScript() }, { name: 'cloud.fill', color: '#007aff', desc: '更新至最新版本' });
+      this.registerAction("检查更新", async () => { await this.updateScript() }, { name: 'cloud.fill', color: '#007aff', desc: `当前版本 v${ScriptVersion}` });
       
       this.registerAction("基础设置", async () => { await this.setBasicConfig(); }, { name: 'gearshape.fill', color: '#007aff', desc: '定位、API、刷新频率' });
       
-      // Removed "布局设置", moved items here directly
       this.registerAction("第一套（三天天气）", async () => { await this.handleStyleSettingsMenu("s1") }, { name: 'doc.text.image', color: '#FF9500', desc: '第一套 (经典)' });
       this.registerAction("第二套（七天天气）", async () => { await this.handleStyleSettingsMenu("s2") }, { name: 'doc.text', color: '#34C759', desc: '第二套 (简约)' });
       this.registerAction("第三套（节假日倒计时）", async () => { await this.handleStyleSettingsMenu("s3") }, { name: 'gift.fill', color: '#FF2D55', desc: '第三套 (节日)' });
@@ -185,23 +186,63 @@ class CaishowWidget extends DmYY {
     }
   }
 
-  // 新增更新脚本方法
   async updateScript() {
     const url = "https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/cytqzyxzj.js";
+    const a = new Alert();
+    
     try {
         const req = new Request(url);
-        const code = await req.loadString();
-        if (code.includes("CaishowWidget")) {
-            const fm = FileManager.local();
-            const path = module.filename;
-            fm.writeString(path, code);
-            this.notify("更新成功", "脚本已更新，请退出并重新打开");
-        } else {
-            this.notify("更新失败", "下载内容为空或格式错误");
+        const html = await req.loadString();
+        
+        // 使用正则提取远程代码中的 ScriptVersion
+        // 允许 const ScriptVersion="x.x.x"; 或 const ScriptVersion = "x.x.x";
+        const versionMatch = html.match(/const\s+ScriptVersion\s*=\s*["'](.*?)["']/);
+        const remoteVersion = versionMatch ? versionMatch[1] : null;
+
+        if (!remoteVersion) {
+            a.title = "⚠️ 无法检测远程版本";
+            a.message = "远程文件可能未包含版本号，或者文件格式有误。\n\n是否强制覆盖更新？";
+            a.addAction("强制更新");
+            a.addCancelAction("取消");
+            const idx = await a.presentAlert();
+            if (idx === 0) await this.doUpdate(html);
+            return;
         }
+
+        if (remoteVersion !== ScriptVersion) {
+            a.title = `🚀 发现新版本 v${remoteVersion}`;
+            a.message = `当前版本: v${ScriptVersion}\n\n建议您立即更新以获得最新功能。`;
+            a.addAction("立即更新");
+            a.addCancelAction("稍后");
+            const idx = await a.presentAlert();
+            if (idx === 0) await this.doUpdate(html);
+        } else {
+            a.title = "✅ 已是最新版本";
+            a.message = `当前版本: v${ScriptVersion}\n无需更新。`;
+            a.addAction("好的");
+            await a.presentAlert();
+        }
+
     } catch (e) {
-        this.notify("更新失败", e.message);
+        a.title = "❌ 更新检测失败";
+        a.message = "网络请求错误或地址不可达：\n" + e.message;
+        a.addAction("确定");
+        await a.presentAlert();
     }
+  }
+
+  async doUpdate(code) {
+     if (code && code.includes("CaishowWidget")) {
+        const fm = FileManager.local();
+        fm.writeString(module.filename, code);
+        const a = new Alert();
+        a.title = "✅ 更新成功";
+        a.message = "脚本已覆盖，请退出并重新运行脚本以生效。";
+        a.addAction("好的");
+        await a.presentAlert();
+     } else {
+        this.notify("更新失败", "下载的内容似乎不正确");
+     }
   }
 
   async handleStyleSettingsMenu(prefix) {
@@ -559,7 +600,6 @@ class CaishowWidget extends DmYY {
         let colorKey1 = isDark ? `${this.activePrefix}color_bg_night` : `${this.activePrefix}color_bg_day`;
         let colorKey2 = isDark ? `${this.activePrefix}color_bg_2_night` : `${this.activePrefix}color_bg_2_day`;
         
-        // Fallbacks
         let c1 = this.settings[colorKey1] || this.settings[`${this.activePrefix}color_bg`] || "#000000";
         let c2 = this.settings[colorKey2] || this.settings[`${this.activePrefix}color_bg_2`];
         
