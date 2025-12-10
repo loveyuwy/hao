@@ -1,5 +1,5 @@
 // ↓↓↓↓↓↓↓↓↓ 这里是版本号，以后发布新版修改这里 ↓↓↓↓↓↓↓↓↓
-const ScriptVersion = "1.0.1";
+const ScriptVersion = "1.0.0";
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 if (typeof require === 'undefined') require = importModule;
@@ -167,8 +167,6 @@ class CaishowWidget extends DmYY {
 
   Run() {
     if (config.runsInApp) {
-      this.registerAction("检查更新", async () => { await this.updateScript() }, { name: 'cloud.fill', color: '#007aff', desc: `当前版本 v${ScriptVersion}` });
-
       this.registerAction("基础设置", async () => { await this.setBasicConfig(); }, { name: 'gearshape.fill', color: '#007aff', desc: '定位、刷新频率' });
       
       // Removed "布局设置", moved items here directly
@@ -185,6 +183,7 @@ class CaishowWidget extends DmYY {
         const idx = await a.presentAlert();
         if(idx===0){ ConfigManager.clear(); this.settings = Object.assign({}, this.defaultData); ConfigManager.save(this.settings); this.notify("已重置", "请重新运行脚本"); }
       }, { name: 'trash.fill', color: '#ff3b30', desc: '修复所有问题' });
+            this.registerAction("检查更新", async () => { await this.updateScript() }, { name: 'cloud.fill', color: '#007aff', desc: `当前版本 v${ScriptVersion}` });
     }
   }
 
