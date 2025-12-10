@@ -186,7 +186,7 @@ class CaishowWidget extends DmYY {
   }
   async updateScript() {
     // 【重要】请将下面的链接替换为你第一步获取到的 GitHub Raw 链接
-    const scriptURL = "https://raw.githubusercontent.com/你的用户名/你的仓库/main/你的脚本名.js";
+    const scriptURL = "https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/cytqzyxzj.js";
     
     const notify = new Notification();
     notify.title = "脚本更新";
