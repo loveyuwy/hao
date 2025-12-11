@@ -1,4 +1,4 @@
-const ScriptVersion = "1.0.0";
+const ScriptVersion = "1.0.1";
 
 if (typeof require === 'undefined') require = importModule;
 const { DmYY, Runing } = require('./DmYY');
@@ -410,6 +410,10 @@ class CaishowWidget extends DmYY {
   }
 
   async handleStyleSwitch() {
+    // 【关键修复】每次打开菜单前，强制读取本地最新配置，解决打钩不准的问题
+    const saved = ConfigManager.load();
+    this.settings = Object.assign({}, this.defaultData, saved);
+    
     const options = [ 
         { t: "第一套(三天天气)", v: "classic" }, 
         { t: "第二套(七天天气)", v: "modern" },
@@ -417,11 +421,13 @@ class CaishowWidget extends DmYY {
         { t: "第四套(日历事件)", v: "schedule" }
     ];
     
+    // 确保读取到的 currentStyle 是真实有效的
     const currentStyle = this.settings.styleModel || "classic";
 
     await this.renderAppView([{
         title: "选择组件样式",
         menu: options.map(o => ({
+            // 这里判断是否打钩
             title: (currentStyle === o.v ? "✅ " : "") + o.t,
             val: `style_${o.v}`,
             icon: { name: "circle.grid.2x2", color: "#5856D6" },
@@ -434,9 +440,10 @@ class CaishowWidget extends DmYY {
                 const idx = await a.presentAlert();
                 
                 if (idx === 0) {
+                    // 【关键修复】立即更新内存和文件
                     this.settings.styleModel = o.v;
                     ConfigManager.save(this.settings);
-                    this.notify("✅ 样式已切换", `当前模式：${o.t}`);
+                    this.notify("✅ 样式已切换", `当前模式：${o.t} (请重新运行)`);
                 }
             }
         }))
@@ -593,12 +600,24 @@ class CaishowWidget extends DmYY {
     const data = await this.fetchData();
     const w = new ListWidget();
     
+    // 【关键修复】强制重新加载配置，防止读取缓存
     const freshSettings = ConfigManager.load();
-    let currentModel = freshSettings.styleModel || "classic";
-    if (args.widgetParameter && args.widgetParameter.indexOf("style2") > -1) currentModel = "modern";
-    if (args.widgetParameter && args.widgetParameter.indexOf("style3") > -1) currentModel = "holiday";
-    if (args.widgetParameter && args.widgetParameter.indexOf("style4") > -1) currentModel = "schedule";
+    // 合并配置，防止缺项
+    this.settings = Object.assign({}, this.defaultData, freshSettings);
     
+    // 默认使用菜单设置的样式
+    let currentModel = this.settings.styleModel || "classic";
+    
+    // 【核心逻辑修复】
+    // 只有在【桌面】运行 (!config.runsInApp) 且【有参数】时，才允许参数覆盖菜单设置。
+    // 在 App 内（编辑/预览）时，参数被强行忽略，只显示你在菜单选的样式。
+    if (!config.runsInApp && args.widgetParameter) {
+        if (args.widgetParameter.indexOf("style2") > -1) currentModel = "modern";
+        if (args.widgetParameter.indexOf("style3") > -1) currentModel = "holiday";
+        if (args.widgetParameter.indexOf("style4") > -1) currentModel = "schedule";
+    }
+    
+    // 设置前缀
     if (currentModel === "modern") {
         this.activePrefix = "s2_";
     } else if (currentModel === "holiday") {
@@ -606,7 +625,7 @@ class CaishowWidget extends DmYY {
     } else if (currentModel === "schedule") {
         this.activePrefix = "s4_";
     } else {
-        this.activePrefix = "s1_";
+        this.activePrefix = "s1_"; // classic 或其他情况
     }
     
     let refreshMinutes = parseInt(this.settings.refreshInterval) || 60;
