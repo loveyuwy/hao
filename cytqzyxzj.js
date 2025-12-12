@@ -187,8 +187,72 @@ class CaishowWidget extends DmYY {
         const idx = await a.presentAlert();
         if(idx===0){ ConfigManager.clear(); this.settings = Object.assign({}, this.defaultData); ConfigManager.save(this.settings); this.notify("已重置", "请重新运行脚本"); }
       }, { name: 'trash.fill', color: '#ff3b30', desc: '修复所有问题' });
+
+      // ↓↓↓↓↓ 新增：检查更新功能 (来自v1.0.1) ↓↓↓↓↓
+      this.registerAction("检查更新", async () => { await this.updateScript() }, { name: 'cloud.fill', color: '#007aff', desc: `当前版本 v${ScriptVersion}` });
+      // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
     }
   }
+
+  // ↓↓↓↓↓ 新增：更新相关方法 (来自v1.0.1) ↓↓↓↓↓
+  async updateScript() {
+    const url = "https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/cytqzyxzj.js";
+    const a = new Alert();
+    
+    try {
+        const req = new Request(url);
+        const html = await req.loadString();
+        
+        // 使用正则提取远程代码中的 ScriptVersion
+        const versionMatch = html.match(/const\s+ScriptVersion\s*=\s*["'](.*?)["']/);
+        const remoteVersion = versionMatch ? versionMatch[1] : null;
+
+        if (!remoteVersion) {
+            a.title = "⚠️ 无法检测远程版本";
+            a.message = "远程文件可能未包含版本号，或者文件格式有误。\n\n是否强制覆盖更新？";
+            a.addAction("强制更新");
+            a.addCancelAction("取消");
+            const idx = await a.presentAlert();
+            if (idx === 0) await this.doUpdate(html);
+            return;
+        }
+
+        if (remoteVersion !== ScriptVersion) {
+            a.title = `🚀 发现新版本 v${remoteVersion}`;
+            a.message = `当前版本: v${ScriptVersion}\n\n建议您立即更新以获得最新功能。`;
+            a.addAction("立即更新");
+            a.addCancelAction("稍后");
+            const idx = await a.presentAlert();
+            if (idx === 0) await this.doUpdate(html);
+        } else {
+            a.title = "✅ 已是最新版本";
+            a.message = `当前版本: v${ScriptVersion}\n无需更新。`;
+            a.addAction("好的");
+            await a.presentAlert();
+        }
+
+    } catch (e) {
+        a.title = "❌ 更新检测失败";
+        a.message = "网络请求错误或地址不可达：\n" + e.message;
+        a.addAction("确定");
+        await a.presentAlert();
+    }
+  }
+
+  async doUpdate(code) {
+     if (code && code.includes("CaishowWidget")) {
+        const fm = FileManager.local();
+        fm.writeString(module.filename, code);
+        const a = new Alert();
+        a.title = "✅ 更新成功";
+        a.message = "脚本已覆盖，请退出并重新运行脚本以生效。";
+        a.addAction("好的");
+        await a.presentAlert();
+     } else {
+        this.notify("更新失败", "下载的内容似乎不正确");
+     }
+  }
+  // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
   getActivePrefix() {
     let currentModel = this.settings.styleModel || "classic";
@@ -198,7 +262,6 @@ class CaishowWidget extends DmYY {
     return "s1";
   }
 
-  // --- 修复：移除自动刷新，只显示提示条，防止页面闪烁/弹窗 ---
   async handleGreetingSettings(prefix) {
     const lotteryOptions = [
         { t: "🚫 不显示彩票 (使用问候语)", v: "none" },
@@ -244,7 +307,6 @@ class CaishowWidget extends DmYY {
                         this.settings.lottery_type = selected.v;
                         ConfigManager.save(this.settings);
                         this.notify("设置已更新", `当前模式：${selected.t}`);
-                        // 移除这里的 await this.handleGreetingSettings(prefix);
                     }
                 }
             }
