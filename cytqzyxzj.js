@@ -1,6 +1,6 @@
-// ↓↓↓↓↓↓↓↓↓ 这里是版本号，以后发布新版修改这里 ↓↓↓↓↓↓↓↓↓
-const ScriptVersion = "1.0.1";
-// ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+// ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+const ScriptVersion = "1.0.2";
+// ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 if (typeof require === 'undefined') require = importModule;
 const { DmYY, Runing } = require('./DmYY');
@@ -68,6 +68,8 @@ const baseConfigKeys = {
     size_calendar: "100", size_holiday: "100", 
     size_schedule_title: "100", size_schedule_item: "100", 
     
+    size_lotteryTitle: "100", size_lotteryItem: "100", size_lotteryInfo: "100",
+    
     color_greeting: "#ffffff", color_date: "#ffcc99", color_lunar: "#99ccff", color_info: "#ffffff",
     color_weather: "#ffffff", color_weatherLarge: "#ffffff", color_poetry: "#ffffff", 
     color_timeInfo: "#99ccff", color_calendar: "#ffffff", color_holiday: "#ffffff", 
@@ -79,6 +81,7 @@ const baseConfigKeys = {
     color_schedule_item_4: "#ffffff",
     color_schedule_item_5: "#ffffff",
     color_schedule_item_6: "#ffffff",
+    color_lotteryTitle: "#ffffff", color_lotteryItem: "#ffffff", color_lotteryInfo: "#99ccff",
     
     color_bg: "#000000",
     color_bg_2: "", 
@@ -131,7 +134,8 @@ class CaishowWidget extends DmYY {
       fixedLng: "", fixedLat: "", fixedCity: "", fixedSubCity: "",
       refreshInterval: "60", 
       styleModel: "classic", 
-      global_font_size: "100"
+      global_font_size: "100",
+      lottery_type: "none"
     };
     
     for (const [key, val] of Object.entries(baseConfigKeys)) {
@@ -168,6 +172,8 @@ class CaishowWidget extends DmYY {
     if (config.runsInApp) {      
       this.registerAction("基础设置", async () => { await this.setBasicConfig(); }, { name: 'gearshape.fill', color: '#007aff', desc: '定位、API、刷新频率' });
       
+      this.registerAction("彩票与问候", async () => { await this.handleGreetingSettings(this.getActivePrefix()); }, { name: 'ticket.fill', color: '#FF2D55', desc: '选择显示的彩票或问候语' });
+      
       this.registerAction("第一套（三天天气）", async () => { await this.handleStyleSettingsMenu("s1") }, { name: 'doc.text.image', color: '#FF9500', desc: '第一套 (经典)' });
       this.registerAction("第二套（七天天气）", async () => { await this.handleStyleSettingsMenu("s2") }, { name: 'doc.text', color: '#34C759', desc: '第二套 (简约)' });
       this.registerAction("第三套（节假日倒计时）", async () => { await this.handleStyleSettingsMenu("s3") }, { name: 'gift.fill', color: '#FF2D55', desc: '第三套 (节日)' });
@@ -181,67 +187,80 @@ class CaishowWidget extends DmYY {
         const idx = await a.presentAlert();
         if(idx===0){ ConfigManager.clear(); this.settings = Object.assign({}, this.defaultData); ConfigManager.save(this.settings); this.notify("已重置", "请重新运行脚本"); }
       }, { name: 'trash.fill', color: '#ff3b30', desc: '修复所有问题' });
-            this.registerAction("检查更新", async () => { await this.updateScript() }, { name: 'cloud.fill', color: '#007aff', desc: `当前版本 v${ScriptVersion}` });
     }
   }
 
-  async updateScript() {
-    const url = "https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/cytqzyxzj.js";
-    const a = new Alert();
-    
-    try {
-        const req = new Request(url);
-        const html = await req.loadString();
-        
-        // 使用正则提取远程代码中的 ScriptVersion
-        // 允许 const ScriptVersion="x.x.x"; 或 const ScriptVersion = "x.x.x";
-        const versionMatch = html.match(/const\s+ScriptVersion\s*=\s*["'](.*?)["']/);
-        const remoteVersion = versionMatch ? versionMatch[1] : null;
-
-        if (!remoteVersion) {
-            a.title = "⚠️ 无法检测远程版本";
-            a.message = "远程文件可能未包含版本号，或者文件格式有误。\n\n是否强制覆盖更新？";
-            a.addAction("强制更新");
-            a.addCancelAction("取消");
-            const idx = await a.presentAlert();
-            if (idx === 0) await this.doUpdate(html);
-            return;
-        }
-
-        if (remoteVersion !== ScriptVersion) {
-            a.title = `🚀 发现新版本 v${remoteVersion}`;
-            a.message = `当前版本: v${ScriptVersion}\n\n建议您立即更新以获得最新功能。`;
-            a.addAction("立即更新");
-            a.addCancelAction("稍后");
-            const idx = await a.presentAlert();
-            if (idx === 0) await this.doUpdate(html);
-        } else {
-            a.title = "✅ 已是最新版本";
-            a.message = `当前版本: v${ScriptVersion}\n无需更新。`;
-            a.addAction("好的");
-            await a.presentAlert();
-        }
-
-    } catch (e) {
-        a.title = "❌ 更新检测失败";
-        a.message = "网络请求错误或地址不可达：\n" + e.message;
-        a.addAction("确定");
-        await a.presentAlert();
-    }
+  getActivePrefix() {
+    let currentModel = this.settings.styleModel || "classic";
+    if (currentModel === "modern") return "s2";
+    if (currentModel === "holiday") return "s3";
+    if (currentModel === "schedule") return "s4";
+    return "s1";
   }
 
-  async doUpdate(code) {
-     if (code && code.includes("CaishowWidget")) {
-        const fm = FileManager.local();
-        fm.writeString(module.filename, code);
-        const a = new Alert();
-        a.title = "✅ 更新成功";
-        a.message = "脚本已覆盖，请退出并重新运行脚本以生效。";
-        a.addAction("好的");
-        await a.presentAlert();
-     } else {
-        this.notify("更新失败", "下载的内容似乎不正确");
-     }
+  // --- 修复：移除自动刷新，只显示提示条，防止页面闪烁/弹窗 ---
+  async handleGreetingSettings(prefix) {
+    const lotteryOptions = [
+        { t: "🚫 不显示彩票 (使用问候语)", v: "none" },
+        { t: "🟡🔵 大乐透 (DLT)", v: "dlt" },
+        { t: "🔴🔵 双色球 (SSQ)", v: "ssq" },
+        { t: "🔢 排列三 (PL3)", v: "pl3" },
+        { t: "🎲 福彩3D (FC3D)", v: "fc3d" },
+        { t: "7️⃣ 七星彩 (QXC)", v: "qxc" },
+        { t: "🌈 七乐彩 (QLC)", v: "qlc" },
+        { t: "🖐 排列五 (PL5)", v: "pl5" }
+    ];
+
+    let currentVal = this.settings.lottery_type || "none";
+    let currentOption = lotteryOptions.find(o => o.v === currentVal) || lotteryOptions[0];
+
+    await this.renderAppView([
+    {
+        title: "彩票显示设置",
+        menu: [
+            { 
+                title: "点击选择模式", 
+                val: "click_select_lottery_type",
+                desc: currentOption.t, 
+                icon: { name: "checklist", color: "#FF2D55" },
+                onClick: async () => {
+                    const a = new Alert();
+                    a.title = "选择显示的彩票";
+                    a.message = "选择后将替换问候语位置显示开奖信息";
+                    
+                    lotteryOptions.forEach(o => {
+                        if (o.v === currentVal) {
+                            a.addAction("✅ " + o.t);
+                        } else {
+                            a.addAction(o.t);
+                        }
+                    });
+                    
+                    a.addCancelAction("取消");
+                    const idx = await a.presentSheet();
+                    
+                    if (idx !== -1) {
+                        const selected = lotteryOptions[idx];
+                        this.settings.lottery_type = selected.v;
+                        ConfigManager.save(this.settings);
+                        this.notify("设置已更新", `当前模式：${selected.t}`);
+                        // 移除这里的 await this.handleGreetingSettings(prefix);
+                    }
+                }
+            }
+        ]
+    },
+    { 
+        title: `自定义问候语 (当彩票选择"不显示"时生效)`,
+        menu: [
+            { title: "凌晨/深夜 (23:00-05:00)", type: "input", val: `${prefix}_text_greeting_night`, placeholder: "默认: " + greetingText.nightGreeting },
+            { title: "早上 (05:00-11:00)", type: "input", val: `${prefix}_text_greeting_morning`, placeholder: "默认: " + greetingText.morningGreeting },
+            { title: "中午 (11:00-13:00)", type: "input", val: `${prefix}_text_greeting_noon`, placeholder: "默认: " + greetingText.noonGreeting },
+            { title: "下午 (13:00-18:00)", type: "input", val: `${prefix}_text_greeting_afternoon`, placeholder: "默认: " + greetingText.afternoonGreeting },
+            { title: "晚上 (18:00-23:00)", type: "input", val: `${prefix}_text_greeting_evening`, placeholder: "默认: " + greetingText.nightText }
+        ]
+    }]);
+    ConfigManager.save(this.settings);
   }
 
   async handleStyleSettingsMenu(prefix) {
@@ -254,7 +273,6 @@ class CaishowWidget extends DmYY {
         { title: "布局微调", val: "menu_layout", icon: { name: "arrow.up.and.down.and.arrow.left.and.right", color: "#5856D6" }, desc: "调整组件位置", onClick: async () => await this.handleLayoutMenu(prefix) },
         { title: "间距/数量", val: "menu_spacing", icon: { name: "arrow.up.left.and.arrow.down.right", color: "#FF2D55" }, desc: "调整行列间距/数量", onClick: async () => await this.handleSpacingMenu(prefix) },
         { title: "字体大小", val: "menu_size", icon: { name: "textformat.size", color: "#FF9500" }, desc: "调整全局或局部缩放", onClick: async () => await this.handleSizeMenu(prefix) },
-        { title: "问候语设置", val: "menu_greeting", icon: { name: "bubble.left.and.bubble.right.fill", color: "#5AC8FA" }, desc: "自定义5个时段问候", onClick: async () => await this.handleGreetingSettings(prefix) },
         { title: "颜色配置", val: "menu_color", icon: { name: "paintpalette.fill", color: "#34C759" }, desc: "自定义文字颜色", onClick: async () => await this.handleColorMenu(prefix) },
         { title: "背景设置", val: "menu_bg", icon: { name: "photo.fill", color: "#007AFF" }, desc: "日夜模式/图片/渐变", onClick: async () => await this.handleBackgroundMenu(prefix) }
     ];
@@ -263,20 +281,6 @@ class CaishowWidget extends DmYY {
         title: `${pName}配置菜单`,
         menu: menu
     }]);
-  }
-
-  async handleGreetingSettings(prefix) {
-    await this.renderAppView([{ 
-        title: `自定义问候语 (留空则用默认)`,
-        menu: [
-            { title: "凌晨/深夜 (23:00-05:00)", type: "input", val: `${prefix}_text_greeting_night`, placeholder: "默认: " + greetingText.nightGreeting },
-            { title: "早上 (05:00-11:00)", type: "input", val: `${prefix}_text_greeting_morning`, placeholder: "默认: " + greetingText.morningGreeting },
-            { title: "中午 (11:00-13:00)", type: "input", val: `${prefix}_text_greeting_noon`, placeholder: "默认: " + greetingText.noonGreeting },
-            { title: "下午 (13:00-18:00)", type: "input", val: `${prefix}_text_greeting_afternoon`, placeholder: "默认: " + greetingText.afternoonGreeting },
-            { title: "晚上 (18:00-23:00)", type: "input", val: `${prefix}_text_greeting_evening`, placeholder: "默认: " + greetingText.nightText }
-        ]
-    }]);
-    ConfigManager.save(this.settings);
   }
 
   async handleLayoutMenu(prefix) {
@@ -331,7 +335,20 @@ class CaishowWidget extends DmYY {
   }
 
   async handleSizeMenu(prefix) {
-    const items = [{id:"greeting", t:"问候语"}, {id:"date", t:"公历日期"}, {id:"lunar", t:"农历日期"}, {id:"info", t:"电量与定位"}, {id:"weather", t:"天气描述"}, {id:"weatherLarge", t:"大温度数字"}, {id:"poetry", t:"诗词与预报"}, {id:"timeInfo", t:"底部时间条"}, {id:"calendar", t:"月历区域"}];
+    const items = [
+        {id:"greeting", t:"问候语"}, 
+        {id:"lotteryTitle", t:"彩票标题(期号)"},
+        {id:"lotteryItem", t:"彩票开奖球号"},
+        {id:"lotteryInfo", t:"今日开奖状态"}, 
+        {id:"date", t:"公历日期"}, 
+        {id:"lunar", t:"农历日期"}, 
+        {id:"info", t:"电量与定位"}, 
+        {id:"weather", t:"天气描述"}, 
+        {id:"weatherLarge", t:"大温度数字"}, 
+        {id:"poetry", t:"诗词与预报"}, 
+        {id:"timeInfo", t:"底部时间条"}, 
+        {id:"calendar", t:"月历区域"}
+    ];
     if (prefix === "s3") items.push({id:"holiday", t:"假期倒数"});
     if (prefix === "s4") {
         items.push({id:"schedule_title", t:"日程标题"});
@@ -353,7 +370,15 @@ class CaishowWidget extends DmYY {
   }
 
   async handleColorMenu(prefix) {
-    const items = [{id:"greeting", t:"问候语"}, {id:"date", t:"公历日期"}, {id:"lunar", t:"农历日期"}, {id:"info", t:"电量与定位"}, {id:"weather", t:"天气描述"}, {id:"weatherLarge", t:"大温度数字"}, {id:"poetry", t:"诗词与预报"}, {id:"timeInfo", t:"底部时间条"}, {id:"calendar", t:"月历区域"}];
+    const items = [
+        {id:"greeting", t:"问候语"},
+        {id:"lotteryTitle", t:"彩票标题"},
+        {id:"lotteryInfo", t:"今日开奖状态"},
+        {id:"date", t:"公历日期"}, {id:"lunar", t:"农历日期"}, 
+        {id:"info", t:"电量与定位"}, {id:"weather", t:"天气描述"}, 
+        {id:"weatherLarge", t:"大温度数字"}, {id:"poetry", t:"诗词与预报"}, 
+        {id:"timeInfo", t:"底部时间条"}, {id:"calendar", t:"月历区域"}
+    ];
     if (prefix === "s3") items.push({id:"holiday", t:"假期倒数"});
     
     if (prefix === "s4") {
@@ -411,7 +436,6 @@ class CaishowWidget extends DmYY {
   }
 
   async handleStyleSwitch() {
-    // 【关键修复】每次打开菜单前，强制读取本地最新配置，解决打钩不准的问题
     const saved = ConfigManager.load();
     this.settings = Object.assign({}, this.defaultData, saved);
     
@@ -422,13 +446,11 @@ class CaishowWidget extends DmYY {
         { t: "第四套(日历事件)", v: "schedule" }
     ];
     
-    // 确保读取到的 currentStyle 是真实有效的
     const currentStyle = this.settings.styleModel || "classic";
 
     await this.renderAppView([{
         title: "选择组件样式",
         menu: options.map(o => ({
-            // 这里判断是否打钩
             title: (currentStyle === o.v ? "✅ " : "") + o.t,
             val: `style_${o.v}`,
             icon: { name: "circle.grid.2x2", color: "#5856D6" },
@@ -441,7 +463,6 @@ class CaishowWidget extends DmYY {
                 const idx = await a.presentAlert();
                 
                 if (idx === 0) {
-                    // 【关键修复】立即更新内存和文件
                     this.settings.styleModel = o.v;
                     ConfigManager.save(this.settings);
                     this.notify("✅ 样式已切换", `当前模式：${o.t} (请重新运行)`);
@@ -480,10 +501,137 @@ class CaishowWidget extends DmYY {
     const weatherPromise = this.fetchWeather(freshSettings, location);
     const poetryPromise = this.fetchPoetry(freshSettings);
     const schedulePromise = this.fetchSchedules(freshSettings);
+    const lotteryPromise = this.fetchLotteryData();
 
-    const [weather, poetry, schedules] = await Promise.all([weatherPromise, poetryPromise, schedulePromise]);
+    const [weather, poetry, schedules, lottery] = await Promise.all([weatherPromise, poetryPromise, schedulePromise, lotteryPromise]);
 
-    return { weather, poetry, schedules };
+    return { weather, poetry, schedules, lottery };
+  }
+  
+  async fetchLotteryData() {
+    let type = this.settings.lottery_type || "dlt";
+    if (!type || type === "none") return null;
+
+    if (type.includes("双色球") || type.includes("SSQ")) type = "ssq";
+    else if (type.includes("大乐透") || type.includes("DLT")) type = "dlt";
+    else if (type.includes("排列三") || type.includes("PL3")) type = "pl3";
+    else if (type.includes("福彩3D") || type.includes("FC3D")) type = "fc3d";
+    else if (type.includes("七星彩") || type.includes("QXC")) type = "qxc";
+    else if (type.includes("七乐彩") || type.includes("QLC")) type = "qlc";
+    else if (type.includes("排列五") || type.includes("PL5")) type = "pl5";
+
+    const cacheKey = `lottery_cache_${type}`;
+    const cache = ConfigManager.readCache(cacheKey);
+    
+    // 30分钟缓存，但如果不含pool信息则强制更新
+    if (cache && cache.timestamp && (Date.now() - cache.timestamp) < 1800000 && cache.data.pool) {
+        return cache.data;
+    }
+
+    let result = { full: "", pool: "", type: type };
+    const mapName = { "ssq": "双色球", "dlt": "大乐透", "pl3": "排列三", "fc3d": "福彩3D", "qxc": "七星彩", "qlc": "七乐彩", "pl5": "排列五" };
+    const name = mapName[type] || "彩票";
+
+    const sportteryMap = { "dlt": 85, "pl3": 35, "pl5": 81, "qxc": "04" };
+    
+    if (sportteryMap[type]) {
+        try {
+            const gameNo = sportteryMap[type];
+            const url = `https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=${gameNo}&provinceId=0&pageSize=1&isVerify=1&pageNo=1`;
+            const req = new Request(url);
+            const res = await req.loadJSON();
+            if (res && res.success && res.value && res.value.list && res.value.list.length > 0) {
+                const item = res.value.list[0];
+                let nums = item.lotteryDrawResult.replace(/ /g, " ");
+                if (type === "dlt") {
+                   const parts = item.lotteryDrawResult.split(" ");
+                   nums = parts.slice(0,5).join(" ") + " + " + parts.slice(5).join(" ");
+                }
+                result.full = `${name} ${item.lotteryDrawNum}期: ${nums}`;
+                
+                // 处理奖池
+                let pool = item.poolMoney || "0";
+                result.pool = this.formatMoney(pool);
+            }
+        } catch(e) { console.log("Sporttery Error: " + e.message); }
+    } else {
+        try {
+            let cwlCode = type;
+            if (type === "fc3d") cwlCode = "3d";
+            
+            const url = `https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=${cwlCode}&issueCount=1`;
+            const req = new Request(url);
+            
+            req.headers = {
+                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+                "Referer": "https://www.cwl.gov.cn/",
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "X-Requested-With": "XMLHttpRequest"
+            };
+            
+            const res = await req.loadJSON();
+            
+            if (res && res.result && res.result.length > 0) {
+                const item = res.result[0];
+                let nums = item.red;
+                if (item.blue && item.blue.length > 0) {
+                    nums = nums + " + " + item.blue;
+                }
+                if (type === "fc3d") {
+                    nums = nums.replace(/,/g, " ");
+                } else {
+                    nums = nums.replace(/,/g, " "); 
+                }
+                
+                result.full = `${name} ${item.code}期: ${nums}`;
+                
+                // 处理奖池
+                let pool = item.poolmoney || "0";
+                result.pool = this.formatMoney(pool);
+            }
+        } catch(e) { console.log("CWL Error: " + e.message); }
+    }
+
+    if (result.full) {
+        ConfigManager.saveCache(cacheKey, { data: result, timestamp: Date.now() });
+        return result;
+    }
+    return null;
+  }
+  
+  formatMoney(numStr) {
+      let num = parseFloat(numStr.replace(/,/g, ""));
+      if (isNaN(num)) return "统计中";
+      if (num > 100000000) {
+          return (num / 100000000).toFixed(2) + "亿";
+      } else if (num > 10000) {
+          return (num / 10000).toFixed(1) + "万";
+      }
+      return num + "元";
+  }
+  
+  getLotterySchedule(type) {
+      const day = new Date().getDay(); // 0 is Sun
+      let text = "今日休市";
+      
+      const map = {
+          "ssq": [0, 2, 4],
+          "dlt": [1, 3, 6],
+          "qlc": [1, 3, 5],
+          "qxc": [0, 2, 5],
+          "fc3d": [0,1,2,3,4,5,6],
+          "pl3": [0,1,2,3,4,5,6],
+          "pl5": [0,1,2,3,4,5,6]
+      };
+      
+      let time = "21:30";
+      if (["ssq", "qlc", "fc3d"].includes(type)) time = "21:15";
+      
+      if (map[type] && map[type].includes(day)) {
+          return `今日开奖: ${time}`;
+      } else {
+          return "今日不开奖";
+      }
   }
 
   async fetchWeather(freshSettings, location) {
@@ -569,27 +717,20 @@ class CaishowWidget extends DmYY {
   }
 
   async render() {
+    const freshSettings = ConfigManager.load();
+    this.settings = Object.assign({}, this.defaultData, freshSettings);
+      
     const data = await this.fetchData();
     const w = new ListWidget();
     
-    // 【关键修复】强制重新加载配置，防止读取缓存
-    const freshSettings = ConfigManager.load();
-    // 合并配置，防止缺项
-    this.settings = Object.assign({}, this.defaultData, freshSettings);
-    
-    // 默认使用菜单设置的样式
     let currentModel = this.settings.styleModel || "classic";
     
-    // 【核心逻辑修复】
-    // 只有在【桌面】运行 (!config.runsInApp) 且【有参数】时，才允许参数覆盖菜单设置。
-    // 在 App 内（编辑/预览）时，参数被强行忽略，只显示你在菜单选的样式。
     if (!config.runsInApp && args.widgetParameter) {
         if (args.widgetParameter.indexOf("style2") > -1) currentModel = "modern";
         if (args.widgetParameter.indexOf("style3") > -1) currentModel = "holiday";
         if (args.widgetParameter.indexOf("style4") > -1) currentModel = "schedule";
     }
     
-    // 设置前缀
     if (currentModel === "modern") {
         this.activePrefix = "s2_";
     } else if (currentModel === "holiday") {
@@ -597,7 +738,7 @@ class CaishowWidget extends DmYY {
     } else if (currentModel === "schedule") {
         this.activePrefix = "s4_";
     } else {
-        this.activePrefix = "s1_"; // classic 或其他情况
+        this.activePrefix = "s1_"; 
     }
     
     let refreshMinutes = parseInt(this.settings.refreshInterval) || 60;
@@ -850,7 +991,8 @@ class CaishowWidget extends DmYY {
         }
     }
   }
-
+  
+  // 修复：补回丢失的 getNextHolidays 函数
   getNextHolidays() {
     const now = new Date(); const currentYear = now.getFullYear();
     const publicHolidays = [ { name: "元旦", m: 1, d: 1 }, { name: "情人节", m: 2, d: 14 }, { name: "妇女节", m: 3, d: 8 }, { name: "劳动节", m: 5, d: 1 }, { name: "儿童节", m: 6, d: 1 }, { name: "建军节", m: 8, d: 1 }, { name: "教师节", m: 9, d: 10 }, { name: "国庆节", m: 10, d: 1 }, { name: "万圣节", m: 11, d: 1 }, { name: "圣诞节", m: 12, d: 25 } ];
@@ -891,16 +1033,50 @@ class CaishowWidget extends DmYY {
 
   async renderInfoSide(stack, data) {
     const isStyle2 = (this.activePrefix === "s2_");
-    
     const date = new Date();
-    let tStack = stack.addStack(); tStack.centerAlignContent();
-    this.addText(tStack, this.getGreeting(date), 23, "greeting", true);
     
-    let dStack = stack.addStack(); dStack.centerAlignContent();
-    this.addText(dStack, this.getDateStr(date), 17, "date");
-    dStack.addSpacer(4);
-    let lunar = this.getLunarDate_Precise(date);
-    this.addText(dStack, lunar.month + lunar.day, 17, "lunar");
+    let tStack = stack.addStack(); tStack.centerAlignContent();
+
+    let hasLottery = (this.settings.lottery_type && this.settings.lottery_type !== "none" && data.lottery);
+
+    if (hasLottery) {
+        // 第一行：彩票名称和期号 + 状态
+        let parts = data.lottery.full.split(":"); 
+        let titleStr = parts[0];
+        let rawNums = parts.length > 1 ? parts[1].trim() : "";
+        
+        // 左：彩票名
+        this.addText(tStack, titleStr, 14, "lotteryTitle", true);
+        
+        tStack.addSpacer(6);
+        
+        // 右：状态框
+        let statusBox = tStack.addStack();
+        statusBox.backgroundColor = new Color("#666666", 0.3); // 半透明背景
+        statusBox.cornerRadius = 4;
+        statusBox.setPadding(1, 4, 1, 4);
+        statusBox.centerAlignContent();
+        
+        let statusText = this.getLotterySchedule(data.lottery.type);
+        this.addText(statusBox, statusText, 10, "lotteryInfo", false, 0, 1, this.getConfColor("lotteryInfo"));
+        
+        // 第二行：开奖球 (减小间距以防溢出)
+        stack.addSpacer(2);
+        let dStack = stack.addStack(); dStack.centerAlignContent();
+        // 传递 isStyle2 参数，用于微调球大小
+        this.renderLotteryBalls(dStack, rawNums, this.settings.lottery_type, isStyle2);
+        
+        // 关键修复：减少底部留白，给下方天气腾出空间
+        if (isStyle2) stack.addSpacer(2);
+        
+    } else {
+        this.addText(tStack, this.getGreeting(date), 23, "greeting", true);
+        let dStack = stack.addStack(); dStack.centerAlignContent();
+        this.addText(dStack, this.getDateStr(date), 17, "date");
+        dStack.addSpacer(4);
+        let lunar = this.getLunarDate_Precise(date);
+        this.addText(dStack, lunar.month + lunar.day, 17, "lunar");
+    }
     
     stack.addSpacer(2);
     let iStack = stack.addStack(); iStack.centerAlignContent();
@@ -975,6 +1151,41 @@ class CaishowWidget extends DmYY {
       sStack.addSpacer(4);
       this.addText(sStack, data.schedules[0].title, 11, "info");
     }
+  }
+  
+  // 修复：增加 isCompact 参数，如果是第二套样式，稍微缩小球体
+  renderLotteryBalls(stack, numString, type, isCompact = false) {
+      const cRed = new Color("#FF3B30");
+      const cBlue = new Color("#007AFF");
+      
+      let zones = numString.split("+");
+      let frontNums = zones[0].trim().split(/[\s,]+/); 
+      let backNums = [];
+      if (zones.length > 1) {
+          backNums = zones[1].trim().split(/[\s,]+/); 
+      }
+      
+      let baseFontSize = this.s(15, "lotteryItem");
+      // 如果是紧凑模式(第二套)，球体稍微小一点点 (1.5倍)，否则正常 (1.7倍)
+      let ballDiameter = Math.round(baseFontSize * (isCompact ? 1.5 : 1.7));
+      
+      const renderOneBall = (n, color) => {
+          if (!n || n.trim() === "") return;
+          let box = stack.addStack();
+          box.size = new Size(ballDiameter, ballDiameter); 
+          box.cornerRadius = ballDiameter / 2;
+          box.backgroundColor = color;
+          box.centerAlignContent();
+          
+          let t = box.addText(n);
+          t.font = Font.boldSystemFont(baseFontSize);
+          t.textColor = Color.white();
+          
+          stack.addSpacer(isCompact ? 3 : 4); 
+      };
+      
+      for (let n of frontNums) renderOneBall(n, cRed);
+      for (let n of backNums) renderOneBall(n, cBlue);
   }
 
 
@@ -1158,15 +1369,18 @@ class CaishowWidget extends DmYY {
   
   s(size, type) { 
     let key = `${this.activePrefix}size_${type}`;
-    let scale = (parseInt(this.settings[key]) || 100) / 100;
-    let globalScale = (parseInt(this.settings.global_font_size) || 100) / 100;
+    let savedVal = this.settings[key];
+    // 容错处理：如果参数不存在或为空，默认100，防止崩溃
+    let scale = (parseInt(savedVal || "100") || 100) / 100;
+    let globalScale = (parseInt(this.settings.global_font_size || "100") || 100) / 100;
     return Math.round(size * scale * globalScale); 
   }
   
   getConfColor(type) { 
     let key = `${this.activePrefix}color_${type}`;
     let c = this.settings[key]; 
-    return c ? new Color(c) : new Color(baseConfigKeys[`color_${type}`]); 
+    // 强制容错：读取失败则默认返回白色，防止崩溃
+    return c ? new Color(c) : new Color(baseConfigKeys[`color_${type}`] || "#ffffff"); 
   }
 
   getSFIco(name) { try { return SFSymbol.named(name).image } catch { return SFSymbol.named("sun.max.fill").image } }
