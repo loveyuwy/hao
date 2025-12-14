@@ -70,10 +70,10 @@ const baseConfigKeys = {
     
     size_lotteryTitle: "100", size_lotteryItem: "100", size_lotteryInfo: "100",
     
-    // 【修改】添加开关默认值
+    // 【新增】开关默认值
     show_battery: "true", 
     show_poetry: "true",
-
+    
     color_greeting: "#ffffff", color_date: "#ffcc99", color_lunar: "#99ccff", color_info: "#ffffff",
     color_weather: "#ffffff", color_weatherLarge: "#ffffff", color_poetry: "#ffffff", 
     color_timeInfo: "#99ccff", color_calendar: "#ffffff", color_holiday: "#ffffff", 
@@ -339,9 +339,9 @@ class CaishowWidget extends DmYY {
         { title: "布局微调", val: "menu_layout", icon: { name: "arrow.up.and.down.and.arrow.left.and.right", color: "#5856D6" }, desc: "调整组件位置", onClick: async () => await this.handleLayoutMenu(prefix) },
         { title: "间距/数量", val: "menu_spacing", icon: { name: "arrow.up.left.and.arrow.down.right", color: "#FF2D55" }, desc: "调整行列间距/数量", onClick: async () => await this.handleSpacingMenu(prefix) },
         
-        // 【新增】独立的显示开关菜单
+        // 【新增】显示开关菜单
         { title: "显示开关", val: "menu_vis", icon: { name: "eye.fill", color: "#007AFF" }, desc: "隐藏/显示部分元素", onClick: async () => await this.handleVisibilityMenu(prefix, pName) },
-        
+
         { title: "字体大小", val: "menu_size", icon: { name: "textformat.size", color: "#FF9500" }, desc: "调整全局或局部缩放", onClick: async () => await this.handleSizeMenu(prefix) },
         { title: "颜色配置", val: "menu_color", icon: { name: "paintpalette.fill", color: "#34C759" }, desc: "自定义文字颜色", onClick: async () => await this.handleColorMenu(prefix) },
         { title: "背景设置", val: "menu_bg", icon: { name: "photo.fill", color: "#007AFF" }, desc: "日夜模式/图片/渐变", onClick: async () => await this.handleBackgroundMenu(prefix) }
@@ -353,7 +353,7 @@ class CaishowWidget extends DmYY {
     }]);
   }
 
-  // 【新增】交互优化的开关逻辑
+  // 【新增】开关设置逻辑
   async handleVisibilityMenu(prefix, styleName) {
     const keyBat = `${prefix}_show_battery`;
     const keyPoe = `${prefix}_show_poetry`;
@@ -370,7 +370,7 @@ class CaishowWidget extends DmYY {
     let poeDesc = poeIsOn ? "当前状态：✅ 已开启" : "当前状态：🔴 已关闭";
 
     await this.renderAppView([{
-        title: `显示设置 - ${styleName}模式 (独立设置)`,
+        title: `显示设置 - ${styleName}模式`,
         menu: [
             { 
                 title: "🔋 电量显示", 
@@ -395,8 +395,8 @@ class CaishowWidget extends DmYY {
                 } 
             },
             { 
-                title: "📜 诗词显示", 
-                desc: poeDesc, 
+                title: "📜 诗词与天气联动", 
+                desc: poeDesc + (poeIsOn ? " (显诗词+3天天气)" : " (隐诗词+7天天气)"), 
                 icon: { name: "text.quote", color: poeIsOn ? "#007AFF" : "#FF3B30" },
                 val: "toggle_poe",
                 onClick: async () => { 
@@ -411,7 +411,7 @@ class CaishowWidget extends DmYY {
                         const newVal = (idx === 0) ? "true" : "false";
                         this.settings[keyPoe] = newVal;
                         ConfigManager.save(this.settings);
-                        this.notify("设置已保存", idx===0 ? "已开启诗词显示" : "已关闭诗词显示");
+                        this.notify("设置已保存", idx===0 ? "已开启诗词" : "已关闭诗词");
                         await this.handleVisibilityMenu(prefix, styleName);
                     }
                 } 
@@ -1195,7 +1195,7 @@ class CaishowWidget extends DmYY {
         // 左：彩票名
         this.addText(tStack, titleStr, 14, "lotteryTitle", true);
         
-        tStack.addSpacer(6);
+        tStack.addSpacer(30);
         
         // 右：状态框
         let statusBox = tStack.addStack();
@@ -1254,8 +1254,9 @@ class CaishowWidget extends DmYY {
       let useCompactMode = (isStyle2 || !showPoetry);
       
       let showLimit = useCompactMode ? 7 : 3;
-      let count = Math.min(data.weather.future.length, showLimit);
       let spaceGap = useCompactMode ? 6 : 8;
+      
+      let count = Math.min(data.weather.future.length, showLimit);
 
       for(let i=0; i < count; i++) {
         let item = data.weather.future[i];
@@ -1282,8 +1283,7 @@ class CaishowWidget extends DmYY {
 
         if(i < count-1) fStack.addSpacer(spaceGap);
       }
-      
-      if (useCompactMode && count < 7) {
+      if (isStyle2 && count < 7) {
            mix.addSpacer(4);
            let warn = mix.addText("API仅" + count + "天"); warn.font = Font.systemFont(8); warn.textColor = Color.red();
       }
@@ -1324,7 +1324,7 @@ class CaishowWidget extends DmYY {
           backNums = zones[1].trim().split(/[\s,]+/); 
       }
       
-      let baseFontSize = this.s(15, "lotteryItem");
+      let baseFontSize = this.s(14, "lotteryItem");
       // 如果是紧凑模式(第二套)，球体稍微小一点点 (1.5倍)，否则正常 (1.7倍)
       let ballDiameter = Math.round(baseFontSize * (isCompact ? 1.5 : 1.7));
       
