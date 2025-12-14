@@ -1,5 +1,5 @@
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-const ScriptVersion = "1.0.2";
+const ScriptVersion = "1.0.3";
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 if (typeof require === 'undefined') require = importModule;
@@ -70,6 +70,10 @@ const baseConfigKeys = {
     
     size_lotteryTitle: "100", size_lotteryItem: "100", size_lotteryInfo: "100",
     
+    // 【修改】添加开关默认值
+    show_battery: "true", 
+    show_poetry: "true",
+
     color_greeting: "#ffffff", color_date: "#ffcc99", color_lunar: "#99ccff", color_info: "#ffffff",
     color_weather: "#ffffff", color_weatherLarge: "#ffffff", color_poetry: "#ffffff", 
     color_timeInfo: "#99ccff", color_calendar: "#ffffff", color_holiday: "#ffffff", 
@@ -334,6 +338,10 @@ class CaishowWidget extends DmYY {
     let menu = [
         { title: "布局微调", val: "menu_layout", icon: { name: "arrow.up.and.down.and.arrow.left.and.right", color: "#5856D6" }, desc: "调整组件位置", onClick: async () => await this.handleLayoutMenu(prefix) },
         { title: "间距/数量", val: "menu_spacing", icon: { name: "arrow.up.left.and.arrow.down.right", color: "#FF2D55" }, desc: "调整行列间距/数量", onClick: async () => await this.handleSpacingMenu(prefix) },
+        
+        // 【新增】独立的显示开关菜单
+        { title: "显示开关", val: "menu_vis", icon: { name: "eye.fill", color: "#007AFF" }, desc: "隐藏/显示部分元素", onClick: async () => await this.handleVisibilityMenu(prefix, pName) },
+        
         { title: "字体大小", val: "menu_size", icon: { name: "textformat.size", color: "#FF9500" }, desc: "调整全局或局部缩放", onClick: async () => await this.handleSizeMenu(prefix) },
         { title: "颜色配置", val: "menu_color", icon: { name: "paintpalette.fill", color: "#34C759" }, desc: "自定义文字颜色", onClick: async () => await this.handleColorMenu(prefix) },
         { title: "背景设置", val: "menu_bg", icon: { name: "photo.fill", color: "#007AFF" }, desc: "日夜模式/图片/渐变", onClick: async () => await this.handleBackgroundMenu(prefix) }
@@ -342,6 +350,73 @@ class CaishowWidget extends DmYY {
     await this.renderAppView([{
         title: `${pName}配置菜单`,
         menu: menu
+    }]);
+  }
+
+  // 【新增】交互优化的开关逻辑
+  async handleVisibilityMenu(prefix, styleName) {
+    const keyBat = `${prefix}_show_battery`;
+    const keyPoe = `${prefix}_show_poetry`;
+    
+    const getStatusVal = (k) => {
+        let v = this.settings[k];
+        return (v === undefined || v === null || v === "true");
+    };
+
+    let batIsOn = getStatusVal(keyBat);
+    let poeIsOn = getStatusVal(keyPoe);
+    
+    let batDesc = batIsOn ? "当前状态：✅ 已开启" : "当前状态：🔴 已关闭";
+    let poeDesc = poeIsOn ? "当前状态：✅ 已开启" : "当前状态：🔴 已关闭";
+
+    await this.renderAppView([{
+        title: `显示设置 - ${styleName}模式 (独立设置)`,
+        menu: [
+            { 
+                title: "🔋 电量显示", 
+                desc: batDesc, 
+                icon: { name: "battery.100", color: batIsOn ? "#34C759" : "#FF3B30" },
+                val: "toggle_bat",
+                onClick: async () => { 
+                    const a = new Alert();
+                    a.title = `设置 ${styleName} 电量显示`;
+                    a.addAction(batIsOn ? "开启 (当前)" : "开启");
+                    a.addAction(!batIsOn ? "关闭 (当前)" : "关闭");
+                    a.addCancelAction("取消");
+                    const idx = await a.presentSheet();
+                    
+                    if (idx !== -1) {
+                        const newVal = (idx === 0) ? "true" : "false";
+                        this.settings[keyBat] = newVal;
+                        ConfigManager.save(this.settings);
+                        this.notify("设置已保存", idx===0 ? "已开启电量显示" : "已关闭电量显示");
+                        await this.handleVisibilityMenu(prefix, styleName);
+                    }
+                } 
+            },
+            { 
+                title: "📜 诗词显示", 
+                desc: poeDesc, 
+                icon: { name: "text.quote", color: poeIsOn ? "#007AFF" : "#FF3B30" },
+                val: "toggle_poe",
+                onClick: async () => { 
+                    const a = new Alert();
+                    a.title = `设置 ${styleName} 诗词显示`;
+                    a.addAction(poeIsOn ? "开启 (当前)" : "开启");
+                    a.addAction(!poeIsOn ? "关闭 (当前)" : "关闭");
+                    a.addCancelAction("取消");
+                    const idx = await a.presentSheet();
+                    
+                    if (idx !== -1) {
+                        const newVal = (idx === 0) ? "true" : "false";
+                        this.settings[keyPoe] = newVal;
+                        ConfigManager.save(this.settings);
+                        this.notify("设置已保存", idx===0 ? "已开启诗词显示" : "已关闭诗词显示");
+                        await this.handleVisibilityMenu(prefix, styleName);
+                    }
+                } 
+            }
+        ]
     }]);
   }
 
@@ -1095,6 +1170,16 @@ class CaishowWidget extends DmYY {
 
   async renderInfoSide(stack, data) {
     const isStyle2 = (this.activePrefix === "s2_");
+    
+    // ↓↓↓↓↓ 获取当前模式下的开关状态 ↓↓↓↓↓
+    const rawBat = this.settings[`${this.activePrefix}show_battery`];
+    const rawPoe = this.settings[`${this.activePrefix}show_poetry`];
+    
+    // 默认为开启(undefined) 或 明确为"true"时显示
+    const showBattery = (rawBat === undefined || rawBat === "true");
+    const showPoetry = (rawPoe === undefined || rawPoe === "true");
+    // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+    
     const date = new Date();
     
     let tStack = stack.addStack(); tStack.centerAlignContent();
@@ -1143,8 +1228,13 @@ class CaishowWidget extends DmYY {
     stack.addSpacer(2);
     let iStack = stack.addStack(); iStack.centerAlignContent();
     this.addText(iStack, weekTitle[date.getDay()], 17, "info");
-    iStack.addSpacer(4);
-    this.addText(iStack, `🔋${Math.round(Device.batteryLevel()*100)}%`, 16, "info");
+    
+    // ↓↓↓↓↓ 电量显示逻辑 ↓↓↓↓↓
+    if (showBattery) {
+        iStack.addSpacer(4);
+        this.addText(iStack, `🔋${Math.round(Device.batteryLevel()*100)}%`, 16, "info");
+    }
+    
     iStack.addSpacer(4);
     let city = this.location.locality || "";
     if(this.location.subLocality) city += ` ${this.location.subLocality}`;
@@ -1159,15 +1249,20 @@ class CaishowWidget extends DmYY {
     
     if (data.weather.future && data.weather.future.length > 0) {
       let fStack = mix.addStack();
-      let showLimit = isStyle2 ? 7 : 3;
+      
+      // 【修改逻辑】如果样式2 或者 诗词关闭，则使用紧凑模式显示7天
+      let useCompactMode = (isStyle2 || !showPoetry);
+      
+      let showLimit = useCompactMode ? 7 : 3;
       let count = Math.min(data.weather.future.length, showLimit);
-      let spaceGap = isStyle2 ? 6 : 8;
+      let spaceGap = useCompactMode ? 6 : 8;
 
       for(let i=0; i < count; i++) {
         let item = data.weather.future[i];
         let col = fStack.addStack(); col.layoutVertically(); col.centerAlignContent();
         
-        if (isStyle2) {
+        // 【修改逻辑】如果处于紧凑模式（样式2或无诗词），使用小字体渲染
+        if (useCompactMode) {
             let d = col.addText(item.day); d.font = Font.systemFont(this.s(10,"poetry")); d.textColor = this.getConfColor("poetry");
             col.addSpacer(1);
             let iSz = this.s(13,"weather"); 
@@ -1187,7 +1282,8 @@ class CaishowWidget extends DmYY {
 
         if(i < count-1) fStack.addSpacer(spaceGap);
       }
-      if (isStyle2 && count < 7) {
+      
+      if (useCompactMode && count < 7) {
            mix.addSpacer(4);
            let warn = mix.addText("API仅" + count + "天"); warn.font = Font.systemFont(8); warn.textColor = Color.red();
       }
@@ -1196,7 +1292,8 @@ class CaishowWidget extends DmYY {
     }
     mix.addSpacer(10);
     
-    if (!isStyle2 && data.poetry && data.poetry.data) {
+    // ↓↓↓↓↓ 诗词显示逻辑 ↓↓↓↓↓
+    if (showPoetry && !isStyle2 && data.poetry && data.poetry.data) {
       let pStack = mix.addStack(); pStack.layoutVertically(); pStack.backgroundColor = new Color("#666", 0.3); pStack.cornerRadius = 4; 
       pStack.setPadding(2, 4, 2, 4); 
       let content = data.poetry.data.content.replace(/[。，！]$/,"");
