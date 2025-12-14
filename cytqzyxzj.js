@@ -6,7 +6,7 @@ if (typeof require === 'undefined') require = importModule;
 const { DmYY, Runing } = require('./DmYY');
 
 const FM = FileManager.local();
-const BASE_DIR = FM.joinPath(FM.libraryDirectory(), "Caishow_Data");
+const BASE_DIR = FM.joinPath(FM.libraryDirectory(), "Caishow_Data_ONE");
 if (!FM.fileExists(BASE_DIR)) FM.createDirectory(BASE_DIR);
 
 try {
