@@ -1,4 +1,6 @@
+// ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 const ScriptVersion = "1.0.3";
+// ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 if (typeof require === 'undefined') require = importModule;
 const { DmYY, Runing } = require('./DmYY');
@@ -68,7 +70,7 @@ const baseConfigKeys = {
     // 彩票相关尺寸
     size_lotteryTitle: "100", size_lotteryItem: "100", size_lotteryInfo: "100",
     
-    // 【修改】新增开关默认值
+    // 【新增】开关默认值
     show_battery: "true", 
     show_poetry: "true",
     
@@ -255,9 +257,9 @@ class CaishowWidget extends DmYY {
         { title: "布局微调", val: "menu_layout", icon: { name: "arrow.up.and.down.and.arrow.left.and.right", color: "#5856D6" }, desc: "调整组件位置", onClick: async () => await this.handleLayoutMenu(prefix) },
         { title: "间距/数量", val: "menu_spacing", icon: { name: "arrow.up.left.and.arrow.down.right", color: "#FF2D55" }, desc: "调整行列间距/数量", onClick: async () => await this.handleSpacingMenu(prefix) },
         
-        // 【新增】独立的显示开关菜单
+        // 【新增】显示开关菜单
         { title: "显示开关", val: "menu_vis", icon: { name: "eye.fill", color: "#007AFF" }, desc: "隐藏/显示部分元素", onClick: async () => await this.handleVisibilityMenu(prefix, pName) },
-        
+
         { title: "字体大小", val: "menu_size", icon: { name: "textformat.size", color: "#FF9500" }, desc: "调整全局或局部缩放", onClick: async () => await this.handleSizeMenu(prefix) },
         { title: "彩票与问候", val: "menu_greeting", icon: { name: "ticket.fill", color: "#5AC8FA" }, desc: "选择彩票或自定义问候", onClick: async () => await this.handleGreetingSettings(prefix) },
         { title: "颜色配置", val: "menu_color", icon: { name: "paintpalette.fill", color: "#34C759" }, desc: "自定义文字颜色", onClick: async () => await this.handleColorMenu(prefix) },
@@ -270,7 +272,7 @@ class CaishowWidget extends DmYY {
     }]);
   }
 
-  // 【新增】交互优化的开关逻辑
+  // 【新增】开关设置逻辑
   async handleVisibilityMenu(prefix, styleName) {
     const keyBat = `${prefix}_show_battery`;
     const keyPoe = `${prefix}_show_poetry`;
@@ -287,7 +289,7 @@ class CaishowWidget extends DmYY {
     let poeDesc = poeIsOn ? "当前状态：✅ 已开启" : "当前状态：🔴 已关闭";
 
     await this.renderAppView([{
-        title: `显示设置 - ${styleName}模式 (独立设置)`,
+        title: `显示设置 - ${styleName}模式`,
         menu: [
             { 
                 title: "🔋 电量显示", 
@@ -312,8 +314,8 @@ class CaishowWidget extends DmYY {
                 } 
             },
             { 
-                title: "📜 诗词显示", 
-                desc: poeDesc, 
+                title: "📜 诗词与天气联动", 
+                desc: poeDesc + (poeIsOn ? " (显诗词+3天天气)" : " (隐诗词+7天天气)"), 
                 icon: { name: "text.quote", color: poeIsOn ? "#007AFF" : "#FF3B30" },
                 val: "toggle_poe",
                 onClick: async () => { 
@@ -328,7 +330,7 @@ class CaishowWidget extends DmYY {
                         const newVal = (idx === 0) ? "true" : "false";
                         this.settings[keyPoe] = newVal;
                         ConfigManager.save(this.settings);
-                        this.notify("设置已保存", idx===0 ? "已开启诗词显示" : "已关闭诗词显示");
+                        this.notify("设置已保存", idx===0 ? "已开启诗词" : "已关闭诗词");
                         await this.handleVisibilityMenu(prefix, styleName);
                     }
                 } 
@@ -579,7 +581,6 @@ class CaishowWidget extends DmYY {
   async setRefreshConfig() { await this.setBasicConfig(); }
 
   async fetchData() {
-    // 【关键修复】在此处强制重新加载配置，确保 lottery_type 是最新的
     const freshSettings = ConfigManager.load();
     this.settings = Object.assign({}, this.defaultData, freshSettings);
 
@@ -639,7 +640,6 @@ class CaishowWidget extends DmYY {
       schedules = events.filter(e=>!e.title.startsWith("Canceled")).map(e=>({title:e.title}));
     } catch (e) {}
 
-    // 【核心修复】现在 fetchData 已经拥有最新的 this.settings，可以正确获取彩票数据了
     const lottery = await this.fetchLotteryData();
 
     return { weather, poetry, schedules, lottery };
@@ -660,7 +660,6 @@ class CaishowWidget extends DmYY {
     const cacheKey = `lottery_cache_${type}`;
     const cache = ConfigManager.readCache(cacheKey);
     
-    // 30分钟缓存机制
     if (cache && cache.timestamp && (Date.now() - cache.timestamp) < 1800000 && cache.data.pool) {
         return cache.data;
     }
@@ -843,11 +842,9 @@ class CaishowWidget extends DmYY {
   }
 
   async render() {
-    // 【关键修复】这里顺序非常重要：先加载设置，再获取数据
     const freshSettings = ConfigManager.load();
     this.settings = Object.assign({}, this.defaultData, freshSettings);
-    
-    // 确保数据获取时使用的是最新的 settings
+      
     const data = await this.fetchData();
     const w = new ListWidget();
     
@@ -1156,8 +1153,43 @@ class CaishowWidget extends DmYY {
     s.setPadding(ft, fl, fb, fr); 
   }
 
+  renderLotteryBalls(stack, numString, type, isCompact = false) {
+      const cRed = new Color("#FF3B30");
+      const cBlue = new Color("#007AFF");
+      
+      let zones = numString.split("+");
+      let frontNums = zones[0].trim().split(/[\s,]+/); 
+      let backNums = [];
+      if (zones.length > 1) {
+          backNums = zones[1].trim().split(/[\s,]+/); 
+      }
+      
+      let baseFontSize = this.s(14, "lotteryItem");
+      let ballDiameter = Math.round(baseFontSize * (isCompact ? 1.5 : 1.7));
+      
+      const renderOneBall = (n, color) => {
+          if (!n || n.trim() === "") return;
+          let box = stack.addStack();
+          box.size = new Size(ballDiameter, ballDiameter); 
+          box.cornerRadius = ballDiameter / 2;
+          box.backgroundColor = color;
+          box.centerAlignContent();
+          
+          let t = box.addText(n);
+          t.font = Font.boldSystemFont(baseFontSize);
+          t.textColor = Color.white();
+          
+          stack.addSpacer(isCompact ? 3 : 4); 
+      };
+      
+      for (let n of frontNums) renderOneBall(n, cRed);
+      for (let n of backNums) renderOneBall(n, cBlue);
+  }
+
   async renderInfoSide(stack, data) {
     const isStyle2 = (this.activePrefix === "s2_");
+    const date = new Date();
+    let tStack = stack.addStack(); tStack.centerAlignContent();
     
     // ↓↓↓↓↓ 获取当前模式下的开关状态 ↓↓↓↓↓
     const rawBat = this.settings[`${this.activePrefix}show_battery`];
@@ -1168,27 +1200,19 @@ class CaishowWidget extends DmYY {
     const showPoetry = (rawPoe === undefined || rawPoe === "true");
     // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
     
-    const date = new Date();
-    
-    let tStack = stack.addStack(); tStack.centerAlignContent();
-    
     // 【判断是否显示彩票】
     let hasLottery = (this.settings.lottery_type && this.settings.lottery_type !== "none" && data.lottery);
 
     if (hasLottery) {
-        // 第一行：彩票名称和期号 + 状态
         let parts = data.lottery.full.split(":"); 
         let titleStr = parts[0];
         let rawNums = parts.length > 1 ? parts[1].trim() : "";
         
-        // 左：彩票名
         this.addText(tStack, titleStr, 14, "lotteryTitle", true);
+        tStack.addSpacer(30);
         
-        tStack.addSpacer(6);
-        
-        // 右：状态框
         let statusBox = tStack.addStack();
-        statusBox.backgroundColor = new Color("#666666", 0.3); // 半透明背景
+        statusBox.backgroundColor = new Color("#666666", 0.3);
         statusBox.cornerRadius = 4;
         statusBox.setPadding(1, 4, 1, 4);
         statusBox.centerAlignContent();
@@ -1196,17 +1220,13 @@ class CaishowWidget extends DmYY {
         let statusText = this.getLotterySchedule(data.lottery.type);
         this.addText(statusBox, statusText, 10, "lotteryInfo", false, 0, 1, this.getConfColor("lotteryInfo"));
         
-        // 第二行：开奖球 (减小间距以防溢出)
         stack.addSpacer(2);
         let dStack = stack.addStack(); dStack.centerAlignContent();
-        // 传递 isStyle2 参数，用于微调球大小
         this.renderLotteryBalls(dStack, rawNums, this.settings.lottery_type, isStyle2);
         
-        // 如果是样式2（简约风），稍微给点底部间距
         if (isStyle2) stack.addSpacer(2);
         
     } else {
-        // 原始显示：问候语 + 日期 + 农历
         this.addText(tStack, this.getGreeting(date), 23, "greeting", true);
         let dStack = stack.addStack(); dStack.centerAlignContent();
         this.addText(dStack, this.getDateStr(date), 17, "date");
@@ -1245,7 +1265,7 @@ class CaishowWidget extends DmYY {
       
       let showLimit = useCompactMode ? 7 : 3;
       let count = Math.min(data.weather.future.length, showLimit);
-      let spaceGap = useCompactMode ? 6 : 8;
+      let spaceGap = isStyle2 ? 6 : 8;
 
       for(let i=0; i < count; i++) {
         let item = data.weather.future[i];
@@ -1272,7 +1292,7 @@ class CaishowWidget extends DmYY {
 
         if(i < count-1) fStack.addSpacer(spaceGap);
       }
-      if (useCompactMode && count < 7) {
+      if (isStyle2 && count < 7) {
            mix.addSpacer(4);
            let warn = mix.addText("API仅" + count + "天"); warn.font = Font.systemFont(8); warn.textColor = Color.red();
       }
@@ -1299,41 +1319,6 @@ class CaishowWidget extends DmYY {
       sStack.addSpacer(4);
       this.addText(sStack, data.schedules[0].title, 11, "info");
     }
-  }
-  
-  // 绘制彩票球
-  renderLotteryBalls(stack, numString, type, isCompact = false) {
-      const cRed = new Color("#FF3B30");
-      const cBlue = new Color("#007AFF");
-      
-      let zones = numString.split("+");
-      let frontNums = zones[0].trim().split(/[\s,]+/); 
-      let backNums = [];
-      if (zones.length > 1) {
-          backNums = zones[1].trim().split(/[\s,]+/); 
-      }
-      
-      let baseFontSize = this.s(15, "lotteryItem");
-      // 如果是紧凑模式(第二套)，球体稍微小一点点 (1.5倍)，否则正常 (1.7倍)
-      let ballDiameter = Math.round(baseFontSize * (isCompact ? 1.5 : 1.7));
-      
-      const renderOneBall = (n, color) => {
-          if (!n || n.trim() === "") return;
-          let box = stack.addStack();
-          box.size = new Size(ballDiameter, ballDiameter); 
-          box.cornerRadius = ballDiameter / 2;
-          box.backgroundColor = color;
-          box.centerAlignContent();
-          
-          let t = box.addText(n);
-          t.font = Font.boldSystemFont(baseFontSize);
-          t.textColor = Color.white();
-          
-          stack.addSpacer(isCompact ? 3 : 4); 
-      };
-      
-      for (let n of frontNums) renderOneBall(n, cRed);
-      for (let n of backNums) renderOneBall(n, cBlue);
   }
 
 
@@ -1517,15 +1502,16 @@ class CaishowWidget extends DmYY {
   
   s(size, type) { 
     let key = `${this.activePrefix}size_${type}`;
-    let scale = (parseInt(this.settings[key]) || 100) / 100;
-    let globalScale = (parseInt(this.settings.global_font_size) || 100) / 100;
+    let savedVal = this.settings[key];
+    let scale = (parseInt(savedVal || "100") || 100) / 100;
+    let globalScale = (parseInt(this.settings.global_font_size || "100") || 100) / 100;
     return Math.round(size * scale * globalScale); 
   }
   
   getConfColor(type) { 
     let key = `${this.activePrefix}color_${type}`;
     let c = this.settings[key]; 
-    return c ? new Color(c) : new Color(baseConfigKeys[`color_${type}`]); 
+    return c ? new Color(c) : new Color(baseConfigKeys[`color_${type}`] || "#ffffff"); 
   }
 
   getSFIco(name) { try { return SFSymbol.named(name).image } catch { return SFSymbol.named("sun.max.fill").image } }
