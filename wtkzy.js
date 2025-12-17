@@ -133,7 +133,7 @@ class CaishowWidget extends DmYY {
     super(arg);
     this.name = '全能日历天气';
     this.en = 'CalendarWeather';
-    this.logo = 'https://mirror.ghproxy.com/https://raw.githubusercontent.com/Orz-3/task/master/scriptable/icon/caiyun.png';
+    this.logo = 'https://raw.githubusercontent.com/Orz-3/task/master/scriptable/icon/caiyun.png';
     
     this.defaultData = {
       apiKey: "",
