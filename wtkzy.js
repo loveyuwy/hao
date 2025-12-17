@@ -1,5 +1,5 @@
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-const ScriptVersion = "1.0.3";
+const ScriptVersion = "1.0.6";
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 if (typeof require === 'undefined') require = importModule;
@@ -73,6 +73,7 @@ const baseConfigKeys = {
     // 【新增】开关默认值
     show_battery: "true", 
     show_poetry: "true",
+    birthday_list: "", // 存储生日数据
     
     color_greeting: "#ffffff", color_date: "#ffcc99", color_lunar: "#99ccff", color_info: "#ffffff",
     color_weather: "#ffffff", color_weatherLarge: "#ffffff", color_poetry: "#ffffff", 
@@ -132,7 +133,7 @@ class CaishowWidget extends DmYY {
     super(arg);
     this.name = '全能日历天气';
     this.en = 'CalendarWeather';
-    this.logo = 'https://raw.githubusercontent.com/Orz-3/task/master/scriptable/icon/caiyun.png';
+    this.logo = 'https://mirror.ghproxy.com/https://raw.githubusercontent.com/Orz-3/task/master/scriptable/icon/caiyun.png';
     
     this.defaultData = {
       apiKey: "",
@@ -157,13 +158,13 @@ class CaishowWidget extends DmYY {
     this.defaultData[`s2_space_week_w`] = "30";
     this.defaultData[`s2_space_cal_w`] = "29.2";
 
-    this.defaultData[`s3_space_week_w`] = "9";
-    this.defaultData[`s3_space_cal_w`] = "8.3";
+    this.defaultData[`s3_space_week_w`] = "8";
+    this.defaultData[`s3_space_cal_w`] = "7.3";
     this.defaultData[`s3_space_cal_h`] = "0";
     this.defaultData[`s3_space_holiday_h`] = "4"; 
 
-    this.defaultData[`s4_space_week_w`] = "9";
-    this.defaultData[`s4_space_cal_w`] = "8.3";
+    this.defaultData[`s4_space_week_w`] = "8";
+    this.defaultData[`s4_space_cal_w`] = "7.3";
     this.defaultData[`s4_space_cal_h`] = "0";
     this.defaultData[`s4_space_schedule_h`] = "0"; 
     this.defaultData[`s4_schedule_count`] = "4"; 
@@ -265,11 +266,60 @@ class CaishowWidget extends DmYY {
         { title: "颜色配置", val: "menu_color", icon: { name: "paintpalette.fill", color: "#34C759" }, desc: "自定义文字颜色", onClick: async () => await this.handleColorMenu(prefix) },
         { title: "背景设置", val: "menu_bg", icon: { name: "photo.fill", color: "#007AFF" }, desc: "日夜模式/图片/渐变", onClick: async () => await this.handleBackgroundMenu(prefix) }
     ];
+        
+    // 【新增】第三套专属：生日管理
+    if (prefix === "s3") {
+        menu.splice(1, 0, { 
+            title: "生日管理", 
+            val: "menu_birthday", 
+            icon: { name: "cake.fill", color: "#FF2D55" }, 
+            desc: "添加/管理家人朋友生日", 
+            onClick: async () => await this.handleBirthdaySettings(prefix) 
+        });
+    }
 
     await this.renderAppView([{
         title: `${pName}配置菜单`,
         menu: menu
     }]);
+  }
+    // 【修复】生日设置逻辑：修正addTextField参数顺序
+  async handleBirthdaySettings(prefix) {
+      let key = `${prefix}_birthday_list`;
+      let savedData = this.settings[key] || "";
+      // 将保存的数据按行分割，存入数组
+      let savedLines = savedData.split("\n").filter(l => l.trim() !== "");
+      
+      const a = new Alert();
+      a.title = "🎂 生日管理";
+      // 顶部说明
+      a.message = "【输入说明】\n请在下方输入框中填写，格式为：\n姓名,日期,类型\n\n【示例】\n老公,10-27,农历\n老婆,05-20,公历\n\n(输入框留空则不显示)";
+      
+      // 生成10个输入框
+      for (let i = 0; i < 10; i++) {
+          let val = savedLines[i] || "";
+          // 修复：placeholder 在前，value 在后
+          a.addTextField("姓名,MM-DD,公历/农历", val);
+      }
+      
+      a.addAction("保存生效");
+      a.addCancelAction("取消");
+      
+      const idx = await a.presentAlert();
+      if (idx === 0) {
+          let newLines = [];
+          // 收集10个输入框的值
+          for (let i = 0; i < 10; i++) {
+              let text = a.textFieldValue(i).trim();
+              if (text) {
+                  newLines.push(text);
+              }
+          }
+          // 用换行符连接并保存
+          this.settings[key] = newLines.join("\n");
+          ConfigManager.save(this.settings);
+          this.notify("✅ 设置已保存", "请返回并重新运行脚本查看");
+      }
   }
 
   // 【新增】开关设置逻辑
@@ -410,7 +460,7 @@ class CaishowWidget extends DmYY {
       { title: "[大号] 日历-日期区", code: "lg_cal" }
     ];
     if (prefix === "s3") {
-        items.push({ title: "[大号] 左下-假期倒数", code: "lg_holiday" });
+        items.push({ title: "[大号] 左下-节日倒数", code: "lg_holiday" });
     }
     if (prefix === "s4") {
         items.push({ title: "[大号] 左下-日历事件", code: "lg_schedule" });
@@ -460,7 +510,7 @@ class CaishowWidget extends DmYY {
         {id:"lotteryItem", t:"彩票开奖球号"},
         {id:"lotteryInfo", t:"今日开奖状态"}, 
         {id:"date", t:"公历日期"}, {id:"lunar", t:"农历日期"}, {id:"info", t:"电量与定位"}, {id:"weather", t:"天气描述"}, {id:"weatherLarge", t:"大温度数字"}, {id:"poetry", t:"诗词与预报"}, {id:"timeInfo", t:"底部时间条"}, {id:"calendar", t:"月历区域"}];
-    if (prefix === "s3") items.push({id:"holiday", t:"假期倒数"});
+    if (prefix === "s3") items.push({id:"holiday", t:"节日倒数"});
     if (prefix === "s4") {
         items.push({id:"schedule_title", t:"日程标题"});
         items.push({id:"schedule_item", t:"日程列表"});
@@ -486,7 +536,7 @@ class CaishowWidget extends DmYY {
         {id:"lotteryTitle", t:"彩票标题"},
         {id:"lotteryInfo", t:"今日开奖状态"},
         {id:"date", t:"公历日期"}, {id:"lunar", t:"农历日期"}, {id:"info", t:"电量与定位"}, {id:"weather", t:"天气描述"}, {id:"weatherLarge", t:"大温度数字"}, {id:"poetry", t:"诗词与预报"}, {id:"timeInfo", t:"底部时间条"}, {id:"calendar", t:"月历区域"}];
-    if (prefix === "s3") items.push({id:"holiday", t:"假期倒数"});
+    if (prefix === "s3") items.push({id:"holiday", t:"节日倒数"});
     
     if (prefix === "s4") {
         items.push({id:"schedule_title", t:"日程标题"});
@@ -949,10 +999,10 @@ class CaishowWidget extends DmYY {
         leftBottomContainer.layoutVertically();
         
         if (isHolidayStyle) {
-            this.applyLayout(leftBottomContainer, "lg_holiday", {t:0, l:5, b:0, r:0});
+            this.applyLayout(leftBottomContainer, "lg_holiday", {t:0, l:9, b:0, r:0});
             await this.renderHolidayBox(leftBottomContainer);
         } else {
-            this.applyLayout(leftBottomContainer, "lg_schedule", {t:0, l:5, b:0, r:0});
+            this.applyLayout(leftBottomContainer, "lg_schedule", {t:0, l:9, b:0, r:0});
             await this.renderScheduleBox(leftBottomContainer, data.schedules);
         }
         
@@ -999,7 +1049,7 @@ class CaishowWidget extends DmYY {
     let icon = titleStack.addImage(this.getSFIco("gift.fill")); icon.imageSize = new Size(iSz, iSz); 
     icon.tintColor = new Color("#FF5555");
     titleStack.addSpacer(4);
-    this.addText(titleStack, "假期倒数", 17, "holiday", true); 
+    this.addText(titleStack, "节日倒数", 17, "holiday", true); 
     
     box.addSpacer(holidayGap); 
 
@@ -1115,11 +1165,14 @@ class CaishowWidget extends DmYY {
     }
   }
 
+  // 【修改】合并节日和生日逻辑
   getNextHolidays() {
     const now = new Date(); const currentYear = now.getFullYear();
     const publicHolidays = [ { name: "元旦", m: 1, d: 1 }, { name: "情人节", m: 2, d: 14 }, { name: "妇女节", m: 3, d: 8 }, { name: "劳动节", m: 5, d: 1 }, { name: "儿童节", m: 6, d: 1 }, { name: "建军节", m: 8, d: 1 }, { name: "教师节", m: 9, d: 10 }, { name: "国庆节", m: 10, d: 1 }, { name: "万圣节", m: 11, d: 1 }, { name: "圣诞节", m: 12, d: 25 } ];
     const holidayMap = { 2025: ["01-29", "04-04", "05-31", "10-06"], 2026: ["02-17", "04-05", "06-19", "09-25"], 2027: ["02-06", "04-05", "06-09", "09-15"], 2028: ["01-26", "04-04", "05-28", "10-03"], 2029: ["02-13", "04-04", "06-16", "09-22"], 2030: ["02-03", "04-05", "06-05", "09-12"], 2031: ["01-23", "04-05", "06-24", "10-01"], 2032: ["02-11", "04-04", "06-12", "09-19"], 2033: ["01-31", "04-04", "06-01", "09-08"], 2034: ["02-19", "04-05", "06-20", "09-27"] };
     let allHolidays = [];
+    
+    // 1. 添加公历固定节日
     for (let y = currentYear; y <= currentYear + 1; y++) {
       if (!holidayMap[y]) continue;
       publicHolidays.forEach(h => { allHolidays.push({ name: h.name, date: new Date(y, h.m - 1, h.d) }); });
@@ -1129,10 +1182,53 @@ class CaishowWidget extends DmYY {
       let lanternDate = new Date(springDate.getTime() + 14*24*60*60*1000); allHolidays.push({ name: "元宵", date: lanternDate });
       allHolidays.push({ name: "清明", date: new Date(`${y}-${qingming}`) }); allHolidays.push({ name: "端午", date: new Date(`${y}-${dragon}`) }); allHolidays.push({ name: "中秋", date: new Date(`${y}-${midAutumn}`) });
     }
+
+    // 2. 添加用户生日
+    let bData = this.settings[`${this.activePrefix}birthday_list`] || "";
+    if (bData) {
+        let lines = bData.split("\n");
+        for (let line of lines) {
+            line = line.replace(/，/g, ",");
+            let parts = line.split(",");
+            if (parts.length < 2) continue;
+            
+            let name = parts[0].trim();
+            let dateStr = parts[1].trim(); // MM-DD
+            let type = (parts.length > 2 && (parts[2].includes("农") || parts[2].includes("Lunar"))) ? "lunar" : "solar";
+            
+            let dm = dateStr.split("-");
+            if(dm.length !== 2) continue;
+            let m = parseInt(dm[0]);
+            let d = parseInt(dm[1]);
+            
+            // 计算今明两年的生日
+            for(let y = currentYear; y <= currentYear + 1; y++) {
+                let targetDate;
+                if (type === "lunar") {
+                    targetDate = getSolarFromLunar(y, m, d);
+                } else {
+                    targetDate = new Date(y, m - 1, d);
+                }
+                if (targetDate) {
+                    allHolidays.push({ name: name, date: targetDate });
+                }
+            }
+        }
+    }
+
     let today = new Date(); today.setHours(0, 0, 0, 0);
     let results = allHolidays.map(h => { let diff = (h.date - today) / (1000 * 60 * 60 * 24); return { name: h.name, days: Math.ceil(diff), date: h.date }; }).filter(h => h.days >= 0).sort((a, b) => a.days - b.days);
-    let uniqueList = []; let seenNames = new Set();
-    for (let h of results) { if (!seenNames.has(h.name)) { seenNames.add(h.name); uniqueList.push(h); } if (uniqueList.length >= 5) break; }
+    
+    // 去重逻辑：同名且同天数的去重
+    let uniqueList = []; let seenKeys = new Set();
+    for (let h of results) { 
+        let key = h.name + "_" + h.days;
+        if (!seenKeys.has(key)) { 
+            seenKeys.add(key); 
+            uniqueList.push(h); 
+        } 
+        if (uniqueList.length >= 5) break; 
+    }
     return uniqueList;
   }
 
@@ -1398,6 +1494,7 @@ class CaishowWidget extends DmYY {
     if (jiList.length === 0) jiList = getYiJiSimple(currentDate, 1);
 
     let leftStack = timeStack.addStack(); leftStack.layoutVertically();
+    leftStack.setPadding(0, 5, 0, 0);
     let zodiacLunarStack = leftStack.addStack(); zodiacLunarStack.centerAlignContent();
     this.addText(zodiacLunarStack, `${zodiac}年 ${lunarObj.month}${lunarObj.day}`, 12, "timeInfo");
     leftStack.addSpacer(0);
@@ -1434,7 +1531,7 @@ class CaishowWidget extends DmYY {
     let head = stack.addStack(); 
     head.setPadding(0,5,0,3);
     
-    let defaultWeekGap = (this.activePrefix === "s3_" || this.activePrefix === "s4_") ? 9 : 30;
+    let defaultWeekGap = (this.activePrefix === "s3_" || this.activePrefix === "s4_") ? 8 : 30;
     let weekGap = parseFloat(this.settings[`${this.activePrefix}space_week_w`] || defaultWeekGap);
 
     for(let i=0; i<7; i++) {
@@ -1452,7 +1549,7 @@ class CaishowWidget extends DmYY {
     let colGap, rowGap;
 
     if (this.activePrefix === "s3_" || this.activePrefix === "s4_") {
-        colGap = parseFloat(this.settings[`${this.activePrefix}space_cal_w`] || 8.3);
+        colGap = parseFloat(this.settings[`${this.activePrefix}space_cal_w`] || 7.3);
         rowGap = parseFloat(this.settings[`${this.activePrefix}space_cal_h`] || 0);
     } else {
         colGap = parseFloat(this.settings[`${this.activePrefix}space_cal_w`] || 29.2);
@@ -1543,9 +1640,53 @@ class CaishowWidget extends DmYY {
   airQuality(v) { if(v<=50)return "优"; if(v<=100)return "良"; if(v<=150)return "轻"; if(v<=200)return "中"; if(v<=300)return "重"; return "严"; }
   getLunarDate_Precise(date) { const lm=["正月","二月","三月","四月","五月","六月","七月","八月","九月","十月","冬月","腊月"]; const ld=["初一","初二","初三","初四","初五","初六","初七","初八","初九","初十","十一","十二","十三","十四","十五","十六","十七","十八","十九","二十","廿一","廿二","廿三","廿四","廿五","廿六","廿七","廿八","廿九","三十"]; let y=date.getFullYear(),m=date.getMonth()+1,d=date.getDate(); let i,sum=348,offset=(Date.UTC(y,m-1,d)-Date.UTC(1900,0,31))/86400000; for(i=1900;i<2101&&offset>0;i++){sum=lYearDays(i);offset-=sum;} if(offset<0){offset+=sum;i--;} let leap=lunarInfo[i-1900]&0xf,isLeap=false,j,md; for(j=1;j<13&&offset>0;j++){ md=(leap===j-1&&!isLeap)?((lunarInfo[i-1900]&0x10000)?30:29):((lunarInfo[i-1900]&(0x10000>>j))?30:29); if(isLeap&&j===leap+1)isLeap=false;else if(leap>0&&j===leap+1&&!isLeap){isLeap=true;--j;} offset-=md; } if(offset<0){offset+=md;--j;} if(j<1)j=1;if(j>12)j=12; return {month:(isLeap?"闰":"")+lm[j-1],day:ld[Math.floor(offset)]||"初一"}; }
 }
-
+// 【修复版】农历转公历辅助函数 (修复了重复累加闰月导致多出30天的问题)
+function getSolarFromLunar(year, month, day) {
+    if (year < 1900 || year > 2100) return null;
+    let offset = 0;
+    // 1. 计算到当年的总天数
+    for (let i = 1900; i < year; i++) {
+        offset += lYearDays(i);
+    }
+    // 2. 计算当年闰哪个月
+    let leapMonth = lunarInfo[year - 1900] & 0xf;
+    
+    // 3. 加上当年的月份天数
+    for (let m = 1; m < month; m++) {
+        let daysInMonth = (lunarInfo[year - 1900] & (0x10000 >> m)) ? 30 : 29;
+        offset += daysInMonth;
+        
+        // 如果当前遍历的月份就是闰月，则加上闰月天数 (例如闰6月，m=6遍历完后，需加闰6月的天数，才能到7月)
+        if (leapMonth > 0 && m === leapMonth) {
+             offset += ((lunarInfo[year - 1900] & 0x10000) ? 30 : 29);
+        }
+    }
+    
+    // 4. 加上日数
+    offset += (day - 1);
+    
+    // 5. 生成公历日期 (1900-1-31 是农历1900年正月初一)
+    let baseDate = new Date(1900, 0, 31);
+    baseDate.setDate(baseDate.getDate() + offset);
+    return baseDate;
+}
 function lYearDays(y){let i,sum=348;for(i=0x8000;i>0x8;i>>=1)sum+=(lunarInfo[y-1900]&i)?1:0;return sum+((lunarInfo[y-1900]&0xf)?((lunarInfo[y-1900]&0x10000)?30:29):0);}
-function getSolarTerm(date){const y=date.getFullYear();const info=[0,21208,42467,63836,85337,107014,128867,150921,173149,195551,218072,240693,263343,285989,308563,331033,353350,375494,397447,419210,440795,462224,483532,504758];const base=Date.UTC(1900,0,6,2,5);const off=31556925974.7*(y-1900);for(let i=0;i<24;i++){const t=new Date(base+off+info[i]*60000);if(t.getFullYear()===y&&t.getMonth()===date.getMonth()&&t.getDate()===date.getDate())return solarTerms[i];}return null;}
+function getSolarTerm(date) {
+  const solarTerms = ["小寒", "大寒", "立春", "雨水", "惊蛰", "春分", "清明", "谷雨", "立夏", "小满", "芒种", "夏至", "小暑", "大暑", "立秋", "处暑", "白露", "秋分", "寒露", "霜降", "立冬", "小雪", "大雪", "冬至"];
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const cVal = [5.4055, 20.12, 3.87, 18.73, 5.63, 20.646, 4.81, 20.1, 5.52, 21.04, 5.678, 21.37, 7.108, 22.83, 7.5, 23.13, 7.646, 23.042, 8.318, 23.438, 7.438, 22.36, 7.18, 21.94];
+  if (year < 2000 || year > 2099) return ""; 
+  function calcDay(y, index) { return Math.floor((y - 2000) * 0.2422 + cVal[index]) - Math.floor((y - 2000) / 4); }
+  let idx1 = (month - 1) * 2;
+  let d1 = calcDay(year, idx1);
+  if (day === d1) return solarTerms[idx1];
+  let idx2 = (month - 1) * 2 + 1;
+  let d2 = calcDay(year, idx2);
+  if (day === d2) return solarTerms[idx2];
+  return null;
+}
 function getMonthGrid(y,m){const f=new Date(y,m,1);const l=new Date(y,m+1,0);const days=l.getDate();const start=f.getDay();const g=[];let w=Array(start).fill(null);for(let i=1;i<=days;i++){w.push(i);if(w.length===7){g.push(w);w=[];}}if(w.length>0){while(w.length<7)w.push(null);g.push(w);}return g;}
 function getStemBranchDay(date){const b=new Date(1900,0,31);const diff=Math.floor((date-b)/86400000);return heavenlyStems[(diff%10+10)%10]+earthlyBranches[(diff%12+12)%12];}
 function getYellowBlackDay(date){let ld=getLunarDate_Precise_Simple(date);return yellowBlackDays[(ld.m+ld.d-2)%12];}
