@@ -198,7 +198,7 @@ class CaishowWidget extends DmYY {
   }
 
   async updateScript() {
-    const url = "https://mirror.ghproxy.com/https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/cytqzyxzj.js";
+    const url = "https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/cytqzyxzj.js";
     const a = new Alert();
     try {
         const req = new Request(url);
