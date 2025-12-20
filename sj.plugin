@@ -5,7 +5,10 @@
 
 [Argument]
 # 开启/关闭 自动抓取Token, 默认开启, 抓到后可关闭
-enable_token_capture = switch, true, true, tag = 抓取Token开关, desc = 默认开启。抓取Token成功后, 可关闭此开关
+enable_token_capture = switch, true, tag = 抓取Token开关, desc = 默认开启。抓取Token成功后, 可关闭此开关
+
+# 开启/关闭 运行通知, 默认开启
+enable_notification = switch, true, tag = 通知开关, desc = 关闭后脚本运行将不再弹出通知
 
 # CRON表达式, 默认10,11,12点运行
 cron = input, "0 10,11,12 * * *", tag = 执行时间, desc = CRON表达式, 默认10,11,12点运行
@@ -14,8 +17,9 @@ cron = input, "0 10,11,12 * * *", tag = 执行时间, desc = CRON表达式, 默�
 # 使用 {enable_token_capture} 变量控制开关
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable = {enable_token_capture}
 
-# 这里使用了上面 [Argument] 中定义的 {cron} 变量
-cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjqd.js, timeout=60, tag=声荐每日任务
+# 这里使用了 {cron} 变量以及新增的 {enable_notification} 变量
+# 注意：这需要 sjqd.js 脚本内部支持参数读取（通常通过 argument 传递）
+cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjqd.js, timeout=60, tag=声荐每日任务, argument={enable_notification}
 
 [MITM]
 hostname = xcx.myinyun.com
