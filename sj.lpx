@@ -1,22 +1,15 @@
 #!name=声荐每日自动签到
-#!desc=微信小程序声荐每日签到加领取小红花。
+#!desc=微信小程序声荐每日签到。
 #!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 自动抓取开关
-enable_token_capture = switch, true, true, tag = 抓取Token开关, desc = 默认开启。
-# 静默运行开关
-silent_switch = switch, false, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
-# 定时设置
-cron_exp = input, "0 10,11,12 * * *", tag = 执行时间, desc = CRON表达式
+# 这里的 key 必须与下方脚本中的 {} 内名称完全一致
+silent_switch = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知
 
 [Script]
-# 抓取脚本
-http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐抓取, enable={enable_token_capture}
-
-# 定时任务 (请注意 argument={silent_switch} 后面不要有空格)
-cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument={silent_switch}
+# 请确保 argument={silent_switch} 紧跟在后面，没有多余引号
+cron "0 10,11,12 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument={silent_switch}
 
 [MITM]
 hostname = xcx.myinyun.com
