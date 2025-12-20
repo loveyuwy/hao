@@ -1,23 +1,18 @@
 #!name=声荐每日自动签到
-#!desc=微信小程序声荐每日签到加领取小红花。
+#!desc=微信小程序声荐每日签到。
 #!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 开启/关闭 自动抓取Token
-enable_token_capture = switch, true, true, tag = 抓取Token开关, desc = 默认开启。抓取成功后可关闭。
-
-# 开启/关闭 静默运行
-silent_switch = switch, false, false, tag = 静默运行, desc = 开启后，日常签到成功将不再弹出通知。
-
-# CRON表达式
-cron = input, "0 10,11,12 * * *", tag = 执行时间, desc = 签到时间
+enable_token_capture = switch, true, true, tag = 抓取Token开关, desc = 开启抓取
+silent_switch = switch, false, false, tag = 静默运行, desc = 开启后不弹出通知
+cron = input, "0 10,11,12 * * *", tag = 执行时间, desc = 定时设置
 
 [Script]
 # 1. 抓取Token
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable={enable_token_capture}
 
-# 2. 定时任务 (注意 argument 传参)
+# 2. 定时任务
 cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐每日任务, argument={silent_switch}
 
 [MITM]
