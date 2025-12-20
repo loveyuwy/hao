@@ -3,13 +3,13 @@
 #!author=〈ザㄩメ火华
 #!category=每日提醒
 #!arguments=CRON定时设置:"0 10,11,12 * * *", 声荐自动抓取开关:"", 静默通知开关:""
-#!arguments-desc=CRON定时设置: 签到脚本的 CRON 表达式; 声荐自动抓取开关: 填写 # 即可禁用Token捕获，清空则开启; 静默通知开关: 填写 # 即可关闭脚本运行后的推送通知，清空则开启。
+#!arguments-desc=CRON定时设置: 签到脚本的 CRON 表达式; 声荐自动抓取开关: 填写 # 即可禁用Token捕获，清空则开启; 静默通知开关: 填写 silent 即可开启静默模式（不弹通知），清空则正常通知。
 
 [Script]
 {{{声荐自动抓取开关}}}声荐自动抓取token = type=http-response, pattern=^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login, script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, max-size=0, script-update-interval=0, timeout=60
 
-声荐自动任务 = type=cron, cronexp="{{{CRON定时设置}}}", script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjqd.js, script-update-interval=0, timeout=60, argument=silent={{{静默通知开关}}}
-
+# 任务执行处加入了 argument 参数传递
+声荐自动任务 = type=cron, cronexp="{{{CRON定时设置}}}", script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjqd.js, script-update-interval=0, timeout=60, argument={{{静默通知开关}}}
 
 [MITM]
 hostname = %APPEND% xcx.myinyun.com:4438
