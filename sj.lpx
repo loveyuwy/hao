@@ -4,21 +4,21 @@
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 开启/关闭 自动抓取Token
-enable_token_capture = switch, true, true, tag = 抓取Token开关, desc = 默认开启。抓取成功后可关闭。
+# 自动抓取 Token
+enable_token_capture = switch, true, true, tag = 抓取Token开关, desc = 默认开启，成功后可关闭。
 
-# 开启/关闭 静默通知
-silent_switch = switch, false, false, tag = 静默运行, desc = 开启后，日常签到成功将不再弹出系统通知，仅在Token失效时提醒。
+# 静默运行（⚠️ 必须是 input，Loon cron 不支持 switch）
+silent = input, "", tag = 静默运行, desc = 填写 1 / true / # 开启静默，留空正常通知。
 
-# CRON表达式
-cron = input, "0 10,11,12 * * *", tag = 执行时间, desc = CRON表达式，默认10,11,12点运行
+# CRON 表达式
+cron = input, "0 10,11,12 * * *", tag = 执行时间, desc = 默认10,11,12点运行
 
 [Script]
 # 抓取 Token
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable={enable_token_capture}
 
 # 定时签到
-cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐每日任务, argument={silent_switch}
+cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐每日任务, argument={silent}
 
 [MITM]
 hostname = xcx.myinyun.com
