@@ -1,27 +1,17 @@
 #!name=声荐每日自动签到
-#!desc=微信小程序声荐每日签到。此版本直接锁定参数，彻底解决变量替换失败导致不通知或一直静默的问题。
+#!desc=微信小程序声荐每日签到。支持自定义执行时间和静默运行。
 #!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 1. 自动抓取 Token 开关
-enable_token_capture = switch, true, tag = 抓取Token开关
-
-# 2. 立即执行开关
-sjqd1_enable = switch, false, tag = 立即执行（收到通知后马上关闭）
+# 静默运行开关
+silent_switch = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
+# 自定义 CRON 执行时间
+cron_exp = input, "0 10,11,12 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式
 
 [Script]
-# 自动抓取 Token
-http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable={enable_token_capture}
-
-# --- 主每日任务区 ---
-# 如果你想【正常通知】，请使用下面这行（argument=false）：
-cron "0 10,11,12 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument=false
-
-# 如果你想【静默运行】，请手动把上面那行的 false 改成 true。
-
-# --- 立即执行区 ---
-cron "*/5 * * * * *" script-path=https://github.com/loveyuwy/hao/raw/refs/heads/main/sjqd1.js, timeout=60, tag=声荐立即执行, enable={sjqd1_enable}
+# 定时任务：这里保留了变量引用，如果 Loon 依然失效，脚本内部有自动修正
+cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument={silent_switch}
 
 [MITM]
 hostname = xcx.myinyun.com
