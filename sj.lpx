@@ -4,14 +4,12 @@
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 静默设置：想静默填 true，想看通知填 false
-silent_mode = input, "false", tag = 静默模式(true/false), desc = 手动输入 true 开启静默，false 关闭静默
-# CRON设置
+# 注意：由于 Loon Bug，此处的设置可能无法直接传给脚本，请在脚本内修改
 cron_exp = input, "0 10,11,12 * * *", tag = 执行时间, desc = CRON表达式
 
 [Script]
-# 直接传递输入框的内容
-cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument={silent_mode}
+# 删除了 argument 参数，改为脚本内部写死控制
+cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务
 
 [MITM]
 hostname = xcx.myinyun.com
