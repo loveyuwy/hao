@@ -1,31 +1,27 @@
 #!name=声荐每日自动签到
-#!desc=微信小程序声荐每日签到加领取小红花。主任务支持静默运行，立即执行任务强制弹窗提醒。
+#!desc=微信小程序声荐每日签到。此版本直接锁定参数，彻底解决变量替换失败导致不通知或一直静默的问题。
 #!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 1. 自动抓取 Token (新增)
-enable_token_capture = switch, true, tag = 抓取Token开关, desc = 默认开启。抓取成功后可关闭。
+# 1. 自动抓取 Token 开关
+enable_token_capture = switch, true, tag = 抓取Token开关
 
-# 2. 静默运行开关 (保持你成功的版本写法)
-silent_switch = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
-
-# 3. 自定义 CRON 执行时间 (保持你成功的版本写法)
-cron_exp = input, "0 10,11,12 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式
-
-# 4. 立即执行开关 (新增)
-sjqd1_enable = switch, false, tag = 立即执行（收到通知后马上关闭）, desc = 打开即开始执行任务。
-cron1 = input, "*/5 * * * * *", tag = 立即执行频率, desc = CRON 表达式。
+# 2. 立即执行开关
+sjqd1_enable = switch, false, tag = 立即执行（收到通知后马上关闭）
 
 [Script]
-# 自动抓取 Token (新增)
+# 自动抓取 Token
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable={enable_token_capture}
 
-# 定时任务：【完全保留你测试成功的写法】
-cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument={silent_switch}
+# --- 主每日任务区 ---
+# 如果你想【正常通知】，请使用下面这行（argument=false）：
+cron "0 10,11,12 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument=false
 
-# 立即执行：(新增)
-cron {cron1} script-path=https://github.com/loveyuwy/hao/raw/refs/heads/main/sjqd1.js, timeout=60, tag=声荐立即执行, enable={sjqd1_enable}
+# 如果你想【静默运行】，请手动把上面那行的 false 改成 true。
+
+# --- 立即执行区 ---
+cron "*/5 * * * * *" script-path=https://github.com/loveyuwy/hao/raw/refs/heads/main/sjqd1.js, timeout=60, tag=声荐立即执行, enable={sjqd1_enable}
 
 [MITM]
 hostname = xcx.myinyun.com
