@@ -1,28 +1,31 @@
 #!name=声荐每日自动签到
-#!desc=微信小程序声荐每日签到。采用持久化参数方案，彻底解决变量不替换的问题。
+#!desc=微信小程序声荐每日签到加领取小红花。主任务支持静默运行，立即执行任务强制弹窗提醒。
 #!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 1. 自动抓取 Token
-enable_token_capture = switch, true, tag = 抓取Token开关, desc = 默认开启。
+# 1. 自动抓取 Token (新增)
+enable_token_capture = switch, true, tag = 抓取Token开关, desc = 默认开启。抓取成功后可关闭。
 
-# 2. 静默运行开关 (注意：这里我们用最基础的命名)
-silent = switch, false, tag = 静默运行, desc = 开启后拦截通知。
+# 2. 静默运行开关 (保持你成功的版本写法)
+silent_switch = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
 
-# 3. 主任务定时
-cron_exp = input, "0 10,11,12 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式。
+# 3. 自定义 CRON 执行时间 (保持你成功的版本写法)
+cron_exp = input, "0 10,11,12 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式
+
+# 4. 立即执行开关 (新增)
+sjqd1_enable = switch, false, tag = 立即执行（收到通知后马上关闭）, desc = 打开即开始执行任务。
+cron1 = input, "*/5 * * * * *", tag = 立即执行频率, desc = CRON 表达式。
 
 [Script]
-# 自动抓取 Token
+# 自动抓取 Token (新增)
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable={enable_token_capture}
 
-# 【最终解决方案】：不再使用 argument={...} 这种传参方式
-# 直接让脚本去插件的 Argument 中读取名为 "silent" 的值
-cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务
+# 定时任务：【完全保留你测试成功的写法】
+cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument={silent_switch}
 
-# 立即执行
-cron "*/5 * * * * *" script-path=https://github.com/loveyuwy/hao/raw/refs/heads/main/sjqd1.js, timeout=60, tag=声荐立即执行, enable=false
+# 立即执行：(新增)
+cron {cron1} script-path=https://github.com/loveyuwy/hao/raw/refs/heads/main/sjqd1.js, timeout=60, tag=声荐立即执行, enable={sjqd1_enable}
 
 [MITM]
 hostname = xcx.myinyun.com
