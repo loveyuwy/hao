@@ -4,9 +4,6 @@
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 静默运行开关
-silent_switch = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
-
 # 自动抓取 Token
 enable_token_capture = switch, true, true, tag = 抓取Token开关, desc = 默认开启。抓取成功后可关闭。
 
@@ -18,6 +15,9 @@ cron1 = input, "*/5 * * * * *", tag = 任务执行时间, desc = CRON 表达式�
 
 # 新增：任务启停开关 —— 打开即运行，关闭即停止
 sjqd1_enable = switch, false, true, tag = 立即执行（收到通知后马上关闭）, desc = 打开即开始执行次任务（按上方间隔运行），关闭立即停止。
+
+# 静默运行开关
+silent_switch = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
 
 [Script]
 # 自动抓取 Token
