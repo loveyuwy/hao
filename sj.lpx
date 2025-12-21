@@ -1,15 +1,15 @@
 #!name=声荐每日自动签到
 #!desc=微信小程序声荐每日签到。
 #!author=〈ザㄩメ火华
-#!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 注意：由于 Loon Bug，此处的设置可能无法直接传给脚本，请在脚本内修改
-cron_exp = input, "0 10,11,12 * * *", tag = 执行时间, desc = CRON表达式
+# 这个开关现在仅作占位符参考，因为 Loon 3.3.7 有 Bug
+silent_switch = switch, false, tag = 静默运行
+cron_exp = input, "0 10,11,12 * * *", tag = 执行时间
 
 [Script]
-# 删除了 argument 参数，改为脚本内部写死控制
-cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务
+# 注意：我们将不再使用 {silent_switch}，而是让你可以手动修改它
+cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument={silent_switch}
 
 [MITM]
 hostname = xcx.myinyun.com
