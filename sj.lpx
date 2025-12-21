@@ -1,16 +1,14 @@
 #!name=声荐每日自动签到
-#!desc=微信小程序声荐每日签到。支持自定义执行时间和静默运行。
+#!desc=微信小程序声荐每日签到。
 #!author=〈ザㄩメ火华
-#!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 静默运行开关
-silent_switch = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
-# 自定义 CRON 执行时间
-cron_exp = input, "0 10,11,12 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式
+# 这个开关现在仅作占位符参考，因为 Loon 3.3.7 有 Bug
+silent_switch = switch, false, tag = 静默运行
+cron_exp = input, "0 10,11,12 * * *", tag = 执行时间
 
 [Script]
-# 定时任务
+# 注意：我们将不再使用 {silent_switch}，而是让你可以手动修改它
 cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument={silent_switch}
 
 [MITM]
