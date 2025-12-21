@@ -8,7 +8,7 @@
 enable_token_capture = switch, true, tag = 抓取Token开关, desc = 默认开启。抓取成功后可关闭。
 
 # 主任务静默开关
-silent_switch = switch, false, tag = 主任务静默运行, desc = 开启后，定时执行的主任务将不弹出通知。
+silent_switch = switch, false, tag = 静默运行, desc = 开启后，定时执行的主任务将不弹出通知。
 
 # 主任务定时（默认 10,11,12 点运行）
 cron = input, "0 10,11,12 * * *", tag = 主任务执行时间, desc = 主任务 CRON 表达式。
@@ -21,10 +21,10 @@ cron1 = input, "*/5 * * * * *", tag = 立即执行频率, desc = CRON 表达式�
 # 1. 自动抓取 Token
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable={enable_token_capture}
 
-# 2. 主每日任务（带静默开关参数）
+# 2. 主每日任务
 cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐每日任务, argument={silent_switch}
 
-# 3. 立即执行任务（不带静默参数，始终弹窗）
+# 3. 立即执行任务
 cron {cron1} script-path=https://github.com/loveyuwy/hao/raw/refs/heads/main/sjqd1.js, timeout=60, tag=声荐立即执行, enable={sjqd1_enable}
 
 [MITM]
