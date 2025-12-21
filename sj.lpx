@@ -4,9 +4,8 @@
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 仅作为 UI 开关存在
-silent_switch = switch, false, tag = 静默运行
-
+# 这个开关只作为 UI & 存储存在
+silent_switch = switch, false, tag = 静默运行, desc = 开启后不通知
 cron_exp = input, "0 10,11,12 * * *", tag = 执行时间
 
 [Script]
