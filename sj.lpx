@@ -7,8 +7,8 @@
 # 1. 自动抓取 Token
 enable_token_capture = switch, true, tag = 抓取Token开关, desc = 默认开启。抓取成功后可关闭。
 
-# 2. 静默运行开关
-silent_switch = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
+# 2. 静默运行开关 (变量名已更改为 sj_silent 以避开缓存 Bug)
+sj_silent = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
 
 # 3. 主任务定时
 cron_exp = input, "0 10,11,12 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式
@@ -21,10 +21,10 @@ cron1 = input, "*/5 * * * * *", tag = 立即执行频率, desc = CRON 表达式�
 # 自动抓取 Token
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable={enable_token_capture}
 
-# 【方案一修改处】：argument 后面直接写变量名，不加 {}
-cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument=silent_switch
+# 【方案二修改处】：使用全新的变量名 sj_silent
+cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument={sj_silent}
 
-# 立即执行：强制不静默
+# 立即执行：强制不带参数运行
 cron {cron1} script-path=https://github.com/loveyuwy/hao/raw/refs/heads/main/sjqd1.js, timeout=60, tag=声荐立即执行, enable={sjqd1_enable}
 
 [MITM]
