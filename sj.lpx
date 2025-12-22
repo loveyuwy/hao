@@ -9,7 +9,7 @@ silent_switch = switch, false, tag = 静默运行, desc = 开启后仅发送一�
 
 [Script]
 # 借鉴酷我的传参写法，直接把变量名传进去
-cron "0 10,11,12 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐任务, argument=silent_switch
+cron "0 10,11,12,23 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐任务, argument=silent_switch
 
 
 [MITM]
