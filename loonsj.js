@@ -1,82 +1,79 @@
 /*
-声荐自动签到 - 深度自适应修正版
+声荐自动签到 - 智能通知版
 */
 
 const $ = new Env("声荐自动签到");
 const tokenKey = "shengjian_auth_token";
 
-let isSilent = false;
+let isSummaryMode = false; // 是否开启“仅总结模式”
 
-// --- 深度自适应参数解析 ---
+// --- 参数解析 ---
 if (typeof $argument !== "undefined" && $argument) {
   const argStr = String($argument).toLowerCase().trim();
-  console.log(`[DEBUG] 传入参数原始值: "${argStr}"`);
+  console.log(`[DEBUG] 传入参数: "${argStr}"`);
   
-  // 逻辑：
-  // 1. 如果 Loon 传回了 "{silent_switch}" (占位符未替换)
-  // 2. 或者传回了 "silent_switch" (变量名未转换)
-  // 3. 或者传回了 "true" (正常转换)
-  // 以上三种情况在 Loon 逻辑中通常都代表用户“开启”了开关
+  // 当开关开启时，判定为“总结模式”
   if (argStr.includes("true") || argStr === "{silent_switch}" || argStr === "silent_switch" || argStr === "1") {
-    isSilent = true;
-    console.log("[DEBUG] 判定结果：静默模式【开启】");
-  } 
-  // 只有当明确传回 "false" 或者参数为空时，才关闭静默
-  else {
-    isSilent = false;
-    console.log("[DEBUG] 判定结果：静默模式【关闭】");
+    isSummaryMode = true;
+    console.log("[DEBUG] 状态：静默开启 -> 切换至【运行总结通知】模式。");
+  } else {
+    isSummaryMode = false;
+    console.log("[DEBUG] 状态：静默关闭 -> 切换至【实时任务通知】模式。");
   }
-} else {
-  isSilent = false;
-  console.log("[DEBUG] 未检测到 argument，默认【关闭】静默");
 }
 
 const rawToken = $.read(tokenKey);
 const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
 
-const commonHeaders = {
-  "Authorization": token,
-  "Content-Type": "application/json",
-  "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.64",
-  "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
-};
-
 (async () => {
   if (!token) {
-    $.notify("❌ 声荐失败", "未找到Token", "请打开小程序重新获取");
+    $.notify("❌ 声荐失败", "未找到 Token", "请重新抓包。");
     return $.done();
   }
 
-  const [signResult, flowerResult] = await Promise.all([signIn(), claimFlower()]);
-  const body = [signResult.message, flowerResult.message].filter(Boolean).join("\n");
-
-  if (isSilent) {
-    console.log(`[静默中] 任务已完成，拦截了弹窗推送。内容如下:\n${body}`);
-  } else {
-    $.notify("声荐任务结果", "", body);
-    console.log(`[弹窗中] 任务已完成，已发送系统通知。内容如下:\n${body}`);
+  // 执行签到
+  const signResult = await signIn();
+  if (!isSummaryMode) {
+    $.notify("声荐签到结果", "", signResult.message);
   }
+
+  // 执行领花
+  const flowerResult = await claimFlower();
+  if (!isSummaryMode) {
+    $.notify("声荐领花结果", "", flowerResult.message);
+  }
+
+  // --- 如果是总结模式，在最后统一发一条 ---
+  if (isSummaryMode) {
+    const summary = `📋 签到: ${signResult.message}\n🌸 领花: ${flowerResult.message}`;
+    $.notify("📊 声荐任务总结", "", summary);
+    console.log(`[总结模式] 已发送汇总通知:\n${summary}`);
+  }
+
 })().catch((e) => {
   console.log(`[异常] ${e}`);
 }).finally(() => $.done());
 
+// --- 接口函数 ---
 function signIn() {
+  const headers = { "Authorization": token, "Content-Type": "application/json" };
   return new Promise((resolve) => {
-    $.put({ url: "https://xcx.myinyun.com:4438/napi/gift", headers: commonHeaders, body: "{}" }, (err, res, data) => {
+    $.put({ url: "https://xcx.myinyun.com:4438/napi/gift", headers: headers, body: "{}" }, (err, res, data) => {
       try {
         const result = JSON.parse(data || "{}");
-        if (result.msg === "ok") resolve({ message: `✅ 签到: ${result.data?.prizeName || "成功"}` });
-        else resolve({ message: `📋 签到: ${result.msg || "已签到"}` });
-      } catch (e) { resolve({ message: "📋 签到: 已完成" }); }
+        if (result.msg === "ok") resolve({ message: result.data?.prizeName || "成功" });
+        else resolve({ message: result.msg || "已签到" });
+      } catch (e) { resolve({ message: "已签到" }); }
     });
   });
 }
 
 function claimFlower() {
+  const headers = { "Authorization": token, "Content-Type": "application/json" };
   return new Promise((resolve) => {
-    $.post({ url: "https://xcx.myinyun.com:4438/napi/flower/get", headers: commonHeaders, body: "{}" }, (err, res, data) => {
-      if (data === "true") resolve({ message: '🌺 已领小红花' });
-      else resolve({ message: '🌸 领花: 已领取或未到时间' });
+    $.post({ url: "https://xcx.myinyun.com:4438/napi/flower/get", headers: headers, body: "{}" }, (err, res, data) => {
+      if (data === "true") resolve({ message: '🌺 成功' });
+      else resolve({ message: '已领取或未到时间' });
     });
   });
 }
