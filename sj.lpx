@@ -4,12 +4,13 @@
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
+# 自定义 CRON 执行时间
 cron_exp = input, "0 10,11,12,23 * * *", tag = 执行时间, desc = 定时 CRON 表达式
+# 静默运行开关
 silent_switch = switch, false, tag = 静默运行, desc = 开启后：23点前静默，23点后汇总；关闭后：实时通知。
 
 [Script]
-# 注意：这里改成了 silent_switch={silent_switch}
-# 这样开关关闭时会传 silent_switch=false，开启时传 silent_switch=true
+# 注意：使用显式赋值 argument=silent_switch={silent_switch}
 cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐任务, argument=silent_switch={silent_switch}
 
 [MITM]
