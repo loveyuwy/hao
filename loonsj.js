@@ -1,23 +1,30 @@
 /*
-声荐自动签到 - 持久化存储版
+声荐自动签到 - 针对 Loon 占位符 Bug 优化版
 */
 
 const $ = new Env("声荐自动签到");
 const tokenKey = "shengjian_auth_token";
-const silentKey = "shengjian_silent_mode"; // 持久化开关的 Key
 
 let isSilent = false;
 
-// --- 持久化参数解析 ---
-const storedSilent = $.read(silentKey);
-console.log(`[DEBUG] 当前持久化静默状态 (Key: ${silentKey}): ${storedSilent}`);
-
-if (storedSilent === "true" || storedSilent === "1") {
-  isSilent = true;
-  console.log("[DEBUG] 判定结果：静默模式【开启】");
+// --- 针对 Loon Bug 的特殊解析逻辑 ---
+if (typeof $argument !== "undefined" && $argument) {
+  const argStr = String($argument).toLowerCase().trim();
+  console.log(`[DEBUG] 接收到原始参数: "${argStr}"`);
+  
+  // 情况 1: Loon 正常替换了变量，值为 true
+  // 情况 2: Loon 替换失败，保留了占位符 "{silent_switch}" -> 这种情况通常代表你在 UI 开启了开关
+  if (argStr === "true" || argStr === "1" || argStr === "{silent_switch}") {
+    isSilent = true;
+    console.log("[DEBUG] 判定结果：静默模式【开启】 (原因：匹配到开启标识或 Loon 占位符)");
+  } else {
+    isSilent = false;
+    console.log("[DEBUG] 判定结果：静默模式【关闭】");
+  }
 } else {
+  // 如果没有任何 argument，说明开关是关闭状态
   isSilent = false;
-  console.log("[DEBUG] 判定结果：静默模式【关闭】");
+  console.log("[DEBUG] 判定结果：未检测到参数，默认【关闭】静默");
 }
 
 const rawToken = $.read(tokenKey);
@@ -46,17 +53,16 @@ const commonHeaders = {
   const body = [signResult.message, flowerResult.message].filter(Boolean).join("\n");
 
   if (isSilent) {
-    console.log(`[静默生效] 拦截通知内容如下:\n${body}`);
+    console.log(`[静默生效] 任务完成，拦截通知内容:\n${body}`);
   } else {
     $.notify("声荐任务结果", "", body);
-    console.log(`[发送通知] 内容如下:\n${body}`);
+    console.log(`[发送通知] 任务完成。内容:\n${body}`);
   }
 })().catch((e) => {
   console.log(`[致命异常] ${e}`);
   $.notify("💥 声荐脚本崩溃", "", String(e));
 }).finally(() => $.done());
 
-// --- 接口函数 ---
 function signIn() {
   return new Promise((resolve) => {
     $.put({ url: "https://xcx.myinyun.com:4438/napi/gift", headers: commonHeaders, body: "{}" }, (err, res, data) => {
@@ -87,4 +93,4 @@ function claimFlower() {
   });
 }
 
-function Env(n){this.name=n;this.notify=(t,s,b)=>{if(typeof $notification!="undefined")$notification.post(t,s,b);else if(typeof $notify!="undefined")$notify(t,s,b);else console.log(`${t}\n${s}\n${b}`)};this.read=k=>{if(typeof $persistentStore!="undefined")return $persistentStore.read(k);if(typeof $prefs!="undefined")return $prefs.valueForKey(k)};this.write=(v,k)=>{if(typeof $persistentStore!="undefined")return $persistentStore.write(v,k);if(typeof $prefs!="undefined")return $prefs.setValueForKey(v,k)};this.put=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.put(r,c)};this.post=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.post(r,c)};this.done=v=>{if(typeof $done!="undefined")$done(v)}}
+function Env(n){this.name=n;this.notify=(t,s,b)=>{if(typeof $notification!="undefined")$notification.post(t,s,b);else if(typeof $notify!="undefined")$notify(t,s,b);else console.log(`${t}\n${s}\n${b}`)};this.read=k=>{if(typeof $persistentStore!="undefined")return $persistentStore.read(k);if(typeof $prefs!="undefined")return $prefs.valueForKey(k)};this.put=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.put(r,c)};this.post=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.post(r,c)};this.done=v=>{if(typeof $done!="undefined")$done(v)}}
