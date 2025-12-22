@@ -1,27 +1,23 @@
 /*
-声荐自动签到 - 最终调试版 (针对 Loon 变量失效优化)
+声荐自动签到 - 持久化存储版
 */
 
 const $ = new Env("声荐自动签到");
 const tokenKey = "shengjian_auth_token";
+const silentKey = "shengjian_silent_mode"; // 持久化开关的 Key
 
 let isSilent = false;
 
-// --- 深度兼容参数解析 ---
-if (typeof $argument !== "undefined" && $argument) {
-  const argStr = String($argument).toLowerCase().trim();
-  console.log(`[DEBUG] 接收到原始参数: "${argStr}"`);
-  
-  // 逻辑：除非明确检测到是关闭状态，否则如果用户在 Loon 界面手动输入了 1 或 true，则静默
-  if (argStr === "true" || argStr === "1" || argStr.includes("true")) {
-    isSilent = true;
-    console.log("[DEBUG] 判定结果：静默模式【开启】");
-  } else {
-    isSilent = false;
-    console.log("[DEBUG] 判定结果：静默模式【关闭】(原因：参数不匹配开启条件)");
-  }
+// --- 持久化参数解析 ---
+const storedSilent = $.read(silentKey);
+console.log(`[DEBUG] 当前持久化静默状态 (Key: ${silentKey}): ${storedSilent}`);
+
+if (storedSilent === "true" || storedSilent === "1") {
+  isSilent = true;
+  console.log("[DEBUG] 判定结果：静默模式【开启】");
 } else {
-  console.log("[DEBUG] 判定结果：未检测到参数，默认【关闭】静默");
+  isSilent = false;
+  console.log("[DEBUG] 判定结果：静默模式【关闭】");
 }
 
 const rawToken = $.read(tokenKey);
@@ -60,6 +56,7 @@ const commonHeaders = {
   $.notify("💥 声荐脚本崩溃", "", String(e));
 }).finally(() => $.done());
 
+// --- 接口函数 ---
 function signIn() {
   return new Promise((resolve) => {
     $.put({ url: "https://xcx.myinyun.com:4438/napi/gift", headers: commonHeaders, body: "{}" }, (err, res, data) => {
@@ -90,4 +87,4 @@ function claimFlower() {
   });
 }
 
-function Env(n){this.name=n;this.notify=(t,s,b)=>{if(typeof $notification!="undefined")$notification.post(t,s,b);else if(typeof $notify!="undefined")$notify(t,s,b);else console.log(`${t}\n${s}\n${b}`)};this.read=k=>{if(typeof $persistentStore!="undefined")return $persistentStore.read(k);if(typeof $prefs!="undefined")return $prefs.valueForKey(k)};this.put=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.put(r,c)};this.post=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.post(r,c)};this.done=v=>{if(typeof $done!="undefined")$done(v)}}
+function Env(n){this.name=n;this.notify=(t,s,b)=>{if(typeof $notification!="undefined")$notification.post(t,s,b);else if(typeof $notify!="undefined")$notify(t,s,b);else console.log(`${t}\n${s}\n${b}`)};this.read=k=>{if(typeof $persistentStore!="undefined")return $persistentStore.read(k);if(typeof $prefs!="undefined")return $prefs.valueForKey(k)};this.write=(v,k)=>{if(typeof $persistentStore!="undefined")return $persistentStore.write(v,k);if(typeof $prefs!="undefined")return $prefs.setValueForKey(v,k)};this.put=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.put(r,c)};this.post=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.post(r,c)};this.done=v=>{if(typeof $done!="undefined")$done(v)}}
