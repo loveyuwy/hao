@@ -1,5 +1,5 @@
 /*
-声荐自动签到 - 最终修正版
+声荐自动签到 - 深度自适应修正版
 */
 
 const $ = new Env("声荐自动签到");
@@ -7,20 +7,27 @@ const tokenKey = "shengjian_auth_token";
 
 let isSilent = false;
 
-// --- 标准参数检查 ---
+// --- 深度自适应参数解析 ---
 if (typeof $argument !== "undefined" && $argument) {
   const argStr = String($argument).toLowerCase().trim();
-  console.log(`[DEBUG] 传入参数: "${argStr}"`);
+  console.log(`[DEBUG] 传入参数原始值: "${argStr}"`);
   
-  // 只有当 Loon 传回明确的 true 时才静默
-  if (argStr === "true" || argStr === "1") {
+  // 逻辑：
+  // 1. 如果 Loon 传回了 "{silent_switch}" (占位符未替换)
+  // 2. 或者传回了 "silent_switch" (变量名未转换)
+  // 3. 或者传回了 "true" (正常转换)
+  // 以上三种情况在 Loon 逻辑中通常都代表用户“开启”了开关
+  if (argStr.includes("true") || argStr === "{silent_switch}" || argStr === "silent_switch" || argStr === "1") {
     isSilent = true;
     console.log("[DEBUG] 判定结果：静默模式【开启】");
-  } else {
+  } 
+  // 只有当明确传回 "false" 或者参数为空时，才关闭静默
+  else {
     isSilent = false;
     console.log("[DEBUG] 判定结果：静默模式【关闭】");
   }
 } else {
+  isSilent = false;
   console.log("[DEBUG] 未检测到 argument，默认【关闭】静默");
 }
 
@@ -44,10 +51,10 @@ const commonHeaders = {
   const body = [signResult.message, flowerResult.message].filter(Boolean).join("\n");
 
   if (isSilent) {
-    console.log(`[静默拦截] 任务完成，内容如下:\n${body}`);
+    console.log(`[静默中] 任务已完成，拦截了弹窗推送。内容如下:\n${body}`);
   } else {
     $.notify("声荐任务结果", "", body);
-    console.log(`[发送弹窗] 任务完成，内容如下:\n${body}`);
+    console.log(`[弹窗中] 任务已完成，已发送系统通知。内容如下:\n${body}`);
   }
 })().catch((e) => {
   console.log(`[异常] ${e}`);
