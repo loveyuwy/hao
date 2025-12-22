@@ -1,5 +1,5 @@
 /*
-声荐自动签到 - 针对 Loon 占位符 Bug 优化版
+声荐自动签到 - 逻辑纠偏版
 */
 
 const $ = new Env("声荐自动签到");
@@ -7,24 +7,27 @@ const tokenKey = "shengjian_auth_token";
 
 let isSilent = false;
 
-// --- 针对 Loon Bug 的特殊解析逻辑 ---
+// --- 逻辑纠偏：处理 Loon 开关不刷新的 Bug ---
 if (typeof $argument !== "undefined" && $argument) {
   const argStr = String($argument).toLowerCase().trim();
   console.log(`[DEBUG] 接收到原始参数: "${argStr}"`);
   
-  // 情况 1: Loon 正常替换了变量，值为 true
-  // 情况 2: Loon 替换失败，保留了占位符 "{silent_switch}" -> 这种情况通常代表你在 UI 开启了开关
-  if (argStr === "true" || argStr === "1" || argStr === "{silent_switch}") {
+  // 核心逻辑：
+  // 1. 如果参数是 "true" 或者包含占位符 "{silent_switch}"，我们暂时认为是开启。
+  // 2. 但如果用户在 UI 关闭了它，Loon 理论上应该传 "false"。
+  if (argStr.includes("false") || argStr === "0") {
+    isSilent = false;
+    console.log("[DEBUG] 判定结果：静默模式【关闭】 (显式指定为 false)");
+  } else if (argStr.includes("true") || argStr === "1" || argStr === "{silent_switch}") {
     isSilent = true;
-    console.log("[DEBUG] 判定结果：静默模式【开启】 (原因：匹配到开启标识或 Loon 占位符)");
+    console.log("[DEBUG] 判定结果：静默模式【开启】");
   } else {
     isSilent = false;
-    console.log("[DEBUG] 判定结果：静默模式【关闭】");
+    console.log("[DEBUG] 判定结果：无法识别参数，默认【关闭】静默");
   }
 } else {
-  // 如果没有任何 argument，说明开关是关闭状态
   isSilent = false;
-  console.log("[DEBUG] 判定结果：未检测到参数，默认【关闭】静默");
+  console.log("[DEBUG] 判定结果：无参数传入，默认【关闭】静默");
 }
 
 const rawToken = $.read(tokenKey);
@@ -52,17 +55,20 @@ const commonHeaders = {
 
   const body = [signResult.message, flowerResult.message].filter(Boolean).join("\n");
 
+  // 最终执行通知逻辑
   if (isSilent) {
-    console.log(`[静默生效] 任务完成，拦截通知内容:\n${body}`);
+    console.log(`[静默生效] 拦截通知内容:\n${body}`);
   } else {
+    // 只有在非静默模式下才调用通知接口
     $.notify("声荐任务结果", "", body);
-    console.log(`[发送通知] 任务完成。内容:\n${body}`);
+    console.log(`[通知已发出] 内容:\n${body}`);
   }
 })().catch((e) => {
   console.log(`[致命异常] ${e}`);
   $.notify("💥 声荐脚本崩溃", "", String(e));
 }).finally(() => $.done());
 
+// --- 接口函数 ---
 function signIn() {
   return new Promise((resolve) => {
     $.put({ url: "https://xcx.myinyun.com:4438/napi/gift", headers: commonHeaders, body: "{}" }, (err, res, data) => {
