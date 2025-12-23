@@ -1,45 +1,32 @@
-/*
-* 声荐每日自动签到 (通知增强版)
-* * 参数说明:
-* notify: true/false (true=每次通知, false=仅22点汇总)
-* * 逻辑:
-* - 10点, 16点: 正常执行任务。如果 notify=false，则不弹窗，只记录结果。
-* - 22点: 执行任务。如果 notify=false，读取当天所有记录，发送汇总通知。
-*/
-
 const $ = new Env("声荐组合任务");
 const tokenKey = "shengjian_auth_token";
-const statsKey = "shengjian_daily_record"; // 用于存储每日运行记录
+const STATS_KEY = "shengjian_daily_stats";
 let isScriptFinished = false;
 
-// -------------- 参数获取与配置 --------------
+// --- 参数解析 (参考酷我脚本逻辑) ---
 const ARGS = (() => {
-    let args = { notify: "true" }; // 默认开启
+    let args = { notify: "true" };
     let input = null;
-    if (typeof $argument !== "undefined") input = $argument;
-    else if (typeof $environment !== "undefined" && $environment.sourcePath) input = $environment.sourcePath.split(/[?#]/)[1];
+    if (typeof $argument !== "undefined") {
+        input = $argument;
+    } else if (typeof $environment !== "undefined" && $environment.sourcePath) {
+        input = $environment.sourcePath.split(/[?#]/)[1];
+    }
     
     if (input) {
+        // 处理 argument=notify=true 这种形式
         if (input.includes("=")) {
             input.split(/&|,/).forEach(item => {
                 let [k, v] = item.split("=");
                 if (k && v) args[k.trim()] = decodeURIComponent(v.trim());
             });
-        } else {
-            // 处理只传布尔值的情况 (针对部分旧配置兼容)
-            args.notify = input.trim();
-        }
+        } 
     }
-    // 规范化 boolean 字符串
-    args.notify = (args.notify === "true" || args.notify === true || args.notify === "1") ? true : false;
     return args;
 })();
 
-// 判断是否为汇总时间 (22:00 - 22:59)
-const isSummaryTime = (() => {
-    const now = new Date();
-    return now.getHours() === 22;
-})();
+const isNotifyEnabled = ARGS.notify === "true" || ARGS.notify === true;
+const SUMMARY_HOUR = 22; // 汇总通知时间
 
 const rawToken = $.read(tokenKey);
 const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
@@ -50,6 +37,26 @@ const commonHeaders = {
   "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.64 NetType/4G Language/zh_CN",
   "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
+
+// --- 持久化与汇总函数 ---
+function updateDailyStats(logText) {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10); // YYYY-MM-DD
+    const timeStr = now.toTimeString().slice(0, 5); // HH:MM
+    
+    let stats = { date: today, logs: [] };
+    try {
+        const stored = JSON.parse($.read(STATS_KEY) || "{}");
+        if (stored.date === today) {
+            stats = stored;
+        }
+    } catch (e) {}
+
+    // 添加本次日志
+    stats.logs.push(`[${timeStr}] ${logText.replace(/\n/g, " | ")}`); // 将换行替换为分隔符以便汇总显示
+    $.write(JSON.stringify(stats), STATS_KEY);
+    return stats;
+}
 
 // ----------------- Step 1: 签到 -----------------
 function signIn() {
@@ -69,7 +76,7 @@ function signIn() {
           const prize = result.data?.prizeName || "成功";
           resolve({ status: 'success', message: `✅ 签到: ${prize}` });
         } else if (String(result.msg || "").includes("已经")) {
-          resolve({ status: 'info', message: '📋 签到: 今天已签过' });
+          resolve({ status: 'info', message: '📋 签到: 次数已用完' });
         } else {
           resolve({ status: 'error', message: `🚫 签到: ${result.msg || "未知错误"}` });
         }
@@ -107,32 +114,9 @@ function claimFlower() {
   });
 }
 
-// ----------------- 记录管理 -----------------
-function updateDailyStats(currentResult) {
-    const today = new Date().toISOString().slice(0, 10);
-    const nowTime = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' });
-    
-    let stats = {};
-    try { stats = JSON.parse($.read(statsKey) || "{}"); } catch (e) { stats = {}; }
-    
-    // 如果是新的一天，重置记录
-    if (stats.date !== today) {
-        stats = { date: today, logs: [] };
-    }
-    
-    // 添加本次运行记录
-    stats.logs.push({
-        time: nowTime,
-        message: currentResult
-    });
-    
-    $.write(JSON.stringify(stats), statsKey);
-    return stats;
-}
-
 // ----------------- 主逻辑 -----------------
 (async () => {
-  console.log(`--- 声荐组合任务开始执行 (Notify: ${ARGS.notify}, IsSummaryTime: ${isSummaryTime}) ---`);
+  console.log(`--- 声荐任务开始 (通知模式: ${isNotifyEnabled ? "每次" : "22点汇总"}) ---`);
 
   if (!token) {
     $.notify("❌ 声荐任务失败", "未找到令牌", "请先运行“声荐获取令牌”脚本。");
@@ -141,63 +125,51 @@ function updateDailyStats(currentResult) {
   }
 
   const [signResult, flowerResult] = await Promise.all([signIn(), claimFlower()]);
-  console.log("--- 执行结果 ---");
-  console.log(JSON.stringify([signResult, flowerResult], null, 2));
-
+  
   if (signResult.status === 'token_error' || flowerResult.status === 'token_error') {
     $.notify("🛑 声荐认证失败", "Token 已过期", "请重新获取令牌后再执行。");
     isScriptFinished = true;
     return $.done();
   }
 
-  // 构建本次运行的消息体
   const lines = [];
   if (signResult.message) lines.push(signResult.message);
   if (flowerResult.message) lines.push(flowerResult.message);
-  const currentBody = lines.join("\n");
-
+  
+  const body = lines.join("\n");
   const hasError = [signResult, flowerResult].some(r => r.status === 'error');
-  const hasSuccess = [signResult, flowerResult].some(r => r.status === 'success');
   
-  let title = "声荐任务结果";
-  if (hasError) title = "❌ 声荐任务异常";
-  else if (hasSuccess) title = "✅ 声荐签到完成";
-  else title = "⚠️ 声荐任务提醒";
+  // 更新当日记录
+  const dailyStats = updateDailyStats(body);
 
-  // 更新每日记录
-  const dailyStats = updateDailyStats(currentBody);
+  // --- 通知决策逻辑 ---
+  const currentHour = new Date().getHours();
+  let shouldNotify = false;
+  let notifyTitle = "声荐任务结果";
+  let notifyBody = body;
 
-  // --- 通知逻辑分支 ---
-  
-  if (ARGS.notify) {
-      // 模式 1: 每次都通知
-      $.notify(title, "", currentBody);
-      console.log(`[通知已发送] 模式: 每次通知`);
+  if (isNotifyEnabled) {
+      // 模式1：每次都通知
+      shouldNotify = true;
+      if (hasError) notifyTitle = "❌ 声荐任务异常";
+      else notifyTitle = "✅ 声荐任务完成";
   } else {
-      // 模式 2: 静默，仅 22 点汇总
-      if (isSummaryTime) {
-          // 发送汇总
-          let summary = [`📅 日期: ${dailyStats.date}`];
-          summary.push("─────────────");
-          if (dailyStats.logs && dailyStats.logs.length > 0) {
-              dailyStats.logs.forEach((log, index) => {
-                  summary.push(`⏱ ${log.time}`);
-                  summary.push(log.message);
-                  if (index < dailyStats.logs.length - 1) summary.push(" -");
-              });
-          } else {
-              summary.push("无今日运行记录");
-          }
-          
-          $.notify("📈 声荐每日汇总", "", summary.join("\n"));
-          console.log(`[通知已发送] 模式: 每日汇总`);
+      // 模式2：汇总通知
+      console.log(`当前时间: ${currentHour}点, 设定汇总: ${SUMMARY_HOUR}点`);
+      if (currentHour === SUMMARY_HOUR) {
+          shouldNotify = true;
+          notifyTitle = `📊 声荐今日汇总 (${dailyStats.date})`;
+          notifyBody = dailyStats.logs.join("\n");
       } else {
-          console.log(`[通知跳过] 模式: 静默 (非22点)`);
-          console.log(`本次结果:\n${currentBody}`);
+          console.log("非汇总时间，静默运行。");
       }
   }
 
-  console.log("--- 声荐组合任务结束 ---");
+  if (shouldNotify) {
+      $.notify(notifyTitle, "", notifyBody);
+      console.log(`已发送通知:\n${notifyTitle}\n${notifyBody}`);
+  }
+
   isScriptFinished = true;
   $.done();
 })().catch((e) => {
