@@ -6,7 +6,7 @@
 
 [Argument]
 cron = input, "0 7-22/3 * * *", tag=定时设置, desc=签到脚本的 CRON 表达式
-notify = select, "1", "0", tag=通知模式, desc=1=每次通知, 0=仅22点汇总
+notify = input, "1", tag=通知模式, desc=输入1为每次通知，0为仅22点汇总
 capture = switch, true, tag=自动抓取, desc=开启或关闭Token捕获
 
 [Script]
