@@ -1,26 +1,49 @@
+/*
+* 声荐组合任务 - 智能通知版
+* * 参数 argument 接收方式:
+* notify: "true" 或 "false" (字符串)
+* * 逻辑参考: 酷我音乐签到脚本
+*/
+
 const $ = new Env("声荐组合任务");
-
-// ================= 参数解析 (最简稳健版) =================
-// 只要参数里包含 "true" 或 "1" 就视为开启，不用管格式
-const argRaw = typeof $argument !== "undefined" ? String($argument) : "";
-const IS_NOTIFY_ON = argRaw.includes("true") || argRaw.includes("1");
-
-console.log(`[DEBUG] 接收到的参数: ${argRaw}`);
-console.log(`[DEBUG] 通知模式判定: ${IS_NOTIFY_ON ? "🟢 全程通知" : "🟡 仅汇总通知"}`);
-
 const tokenKey = "shengjian_auth_token";
-const STATS_KEY = "shengjian_daily_stats";
-const LAST_RUN_HOUR = 22; // 汇总通知时间: 22点
 
-let isScriptFinished = false;
+// --- 参数解析 (参考酷我逻辑) ---
+const ARGS = (() => {
+    let args = { notify: "true" };
+    let input = null;
 
-// 判断是否为最后一次运行（用于汇总通知）
-const isLastRun = (() => {
+    if (typeof $argument !== "undefined") {
+        input = $argument;
+    }
+
+    // 处理 argument={notify} 传入的简单字符串
+    if (input) {
+        const str = String(input).trim().replace(/^"|"$/g, "");
+        if (str === "false" || str === "0") {
+            args.notify = "false";
+        } else {
+            args.notify = "true";
+        }
+    }
+    return args;
+})();
+
+// --- 业务常量 ---
+const CONSTANTS = {
+    SUMMARY_HOUR: 22 // 汇总通知触发的小时 (22点)
+};
+
+console.log(`🔔 通知模式: ${ARGS.notify === "true" ? "每次通知" : "静默 (仅22点汇总)"}`);
+
+// 判断是否为汇总时间点 (22:00 - 22:59)
+const isSummaryTime = (() => {
     const now = new Date();
     const hour = now.getHours();
-    // 只要是22点里的任何时间运行，都算最后一次
-    return hour === LAST_RUN_HOUR;
+    return hour === CONSTANTS.SUMMARY_HOUR;
 })();
+
+let isScriptFinished = false;
 
 const rawToken = $.read(tokenKey);
 const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
@@ -31,23 +54,6 @@ const commonHeaders = {
   "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.64 NetType/4G Language/zh_CN",
   "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
-
-// ================= 数据持久化 =================
-function getDailyStats() {
-    const today = new Date().toISOString().slice(0, 10);
-    let stats = {};
-    try { stats = JSON.parse($.read(STATS_KEY) || "{}"); } catch (e) { stats = {}; }
-    if (stats.date !== today) {
-        stats = { date: today, runCount: 0 };
-    }
-    return stats;
-}
-
-function saveDailyStats(stats) {
-    $.write(JSON.stringify(stats), STATS_KEY);
-}
-
-// ================= 业务逻辑 =================
 
 // ----------------- Step 1: 签到 -----------------
 function signIn() {
@@ -67,7 +73,7 @@ function signIn() {
           const prize = result.data?.prizeName || "成功";
           resolve({ status: 'success', message: `✅ 签到: ${prize}` });
         } else if (String(result.msg || "").includes("已经")) {
-          resolve({ status: 'info', message: '📋 签到: 今天签到次数已用完' });
+          resolve({ status: 'info', message: '📋 签到: 今天已签过' });
         } else {
           resolve({ status: 'error', message: `🚫 签到: ${result.msg || "未知错误"}` });
         }
@@ -88,7 +94,7 @@ function claimFlower() {
     };
     $.post(req, (err, res, data) => {
       if (err) return resolve({ status: 'info', message: '⏰ 领花: 超时或未到时间' });
-      if (data === "true") return resolve({ status: 'success', message: '🌺 已领小红花' });
+      if (data === "true") return resolve({ status: 'success', message: '🌺 领花: 领取成功' });
       try {
         const obj = JSON.parse(data);
         if (obj.statusCode === 401)
@@ -107,58 +113,64 @@ function claimFlower() {
 
 // ----------------- 主逻辑 -----------------
 (async () => {
-  console.log(`--- 声荐组合任务开始执行 ---`);
+  console.log("--- 声荐组合任务开始执行 ---");
 
   if (!token) {
+    // 无Token时，强制通知
     $.notify("❌ 声荐任务失败", "未找到令牌", "请先运行“声荐获取令牌”脚本。");
     isScriptFinished = true;
     return $.done();
   }
-  
-  // 更新运行统计
-  let dailyStats = getDailyStats();
-  dailyStats.runCount++;
-  saveDailyStats(dailyStats);
 
   const [signResult, flowerResult] = await Promise.all([signIn(), claimFlower()]);
+  
+  // 简单日志输出
   console.log("--- 执行结果 ---");
-  console.log(JSON.stringify([signResult, flowerResult], null, 2));
+  console.log(`签到状态: ${signResult.status}, 信息: ${signResult.message}`);
+  console.log(`领花状态: ${flowerResult.status}, 信息: ${flowerResult.message}`);
 
+  // 如果 Token 过期，强制通知
   if (signResult.status === 'token_error' || flowerResult.status === 'token_error') {
     $.notify("🛑 声荐认证失败", "Token 已过期", "请重新获取令牌后再执行。");
     isScriptFinished = true;
     return $.done();
   }
 
+  // 组装通知内容
   const lines = [];
   if (signResult.message) lines.push(signResult.message);
   if (flowerResult.message) lines.push(flowerResult.message);
 
   const hasError = [signResult, flowerResult].some(r => r.status === 'error');
   const hasSuccess = [signResult, flowerResult].some(r => r.status === 'success');
-
+  
+  // 确定标题
   let title = "声荐任务结果";
   if (hasError) title = "❌ 声荐任务异常";
-  else if (hasSuccess) title = "✅ 声荐签到完成";
+  else if (hasSuccess) title = "✅ 声荐任务完成";
   else title = "⚠️ 声荐任务提醒";
 
+  // 如果是汇总通知，修改标题
+  if (ARGS.notify === "false" && isSummaryTime) {
+      title = "📊 声荐每日汇总";
+  }
+
   const body = lines.join("\n");
-  
-  // ================= 通知核心逻辑 =================
-  if (IS_NOTIFY_ON) {
-      // 模式1: 开关开启 -> 每次必推
+  console.log(`通知内容预览:\n${title}\n${body}`);
+
+  // --- 核心通知逻辑 ---
+  if (ARGS.notify === "true") {
+      // 模式1: 每次都通知
       $.notify(title, "", body);
-      console.log(`[通知] ✅ 开关已开启，发送实时通知`);
-  } else if (isLastRun) {
-      // 模式2: 开关关闭 -> 仅22点推汇总
-      let summaryTitle = "声荐每日汇总";
-      let summaryBody = `📅 日期: ${dailyStats.date}\n🔄 今日运行: ${dailyStats.runCount}次\n───────────\n${body}`;
-      $.notify(summaryTitle, "", summaryBody);
-      console.log(`[通知] 🌙 汇总时间(22点)，发送汇总通知`);
   } else {
-      // 模式3: 开关关闭 + 非22点 -> 静默
-      console.log(`[通知] 🔕 静默模式 (开关关闭且非22点)，跳过通知`);
-      console.log(`[预览] 本该发送的内容:\n${title}\n${body}`);
+      // 模式2: 静默模式
+      if (isSummaryTime) {
+          // 只有在22点才发送汇总
+          $.notify(title, "今日最终状态", body);
+      } else {
+          // 其他时间跳过通知
+          console.log("🤫 静默模式: 非汇总时间(22点)，跳过通知");
+      }
   }
 
   console.log("--- 声荐组合任务结束 ---");
