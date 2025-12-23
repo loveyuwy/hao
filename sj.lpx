@@ -18,7 +18,7 @@ notify = switch, true, false, tag = 每次通知, desc = 打开则每次运行�
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable = {enable_token_capture}
 
 # 每日任务脚本 (注意 argument 的写法)
-cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐每日任务, argument="[{notify}]"
+cron "0 10-22/6 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐每日任务, argument="[{notify}]"
 
 [MITM]
 hostname = xcx.myinyun.com
