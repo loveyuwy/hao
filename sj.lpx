@@ -1,16 +1,21 @@
 #!name=声荐每日自动签到
-#!desc=静默关闭时实时通知，静默打开时 23:00 后汇总总结。
+#!desc=微信小程序声荐每日签到。自动签到频率：7-22点每3小时运行。
 #!author=〈ザㄩメ火华
-#!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
+#!category=每日提醒
+#!homepage=https://github.com/loveyuwy/huohua
+#!icon=https://raw.githubusercontent.com/Orz-3/mini/master/Color/shengjian.png
 
 [Argument]
-# 静默运行开关
-silent_switch = switch, false, tag = 静默运行, desc = 开启后仅发送一条汇总通知。
+cron = input, "0 7-22/3 * * *", tag=CRON定时设置, desc=签到脚本的 CRON 表达式
+capture = switch, true, tag=自动抓取开关, desc=是否开启Token捕获
+notify_mode = select, "0", "1", tag=通知模式, desc=1=每次通知, 0=仅22点汇总(默认0)
 
 [Script]
-# 借鉴酷我的传参写法，直接把变量名传进去
-cron "0 10,11,12,23 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐任务, argument=silent_switch
+# 捕获 Token 逻辑 (此部分通常引用外部 sjtoken.js，若您需要内置逻辑可告知)
+http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, tag=声荐Token获取, enable={{{capture}}}
 
+# 自动任务 (执行下方代码逻辑)
+cron "{{{cron}}}" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, tag=声荐自动任务, argument=notify={{{notify_mode}}}
 
 [MITM]
 hostname = xcx.myinyun.com
