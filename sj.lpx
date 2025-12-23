@@ -1,21 +1,22 @@
 #!name=声荐每日自动签到
-#!desc=微信小程序声荐每日签到 + 领小红花。支持静默汇总通知（22点）。
+#!desc=微信小程序声荐每日签到 + 小红花。支持静默模式，22点汇总，失败/Token失效强制提醒
 #!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 是否开启 token 自动抓取
-enable_token_capture = switch, true, true, tag = 抓取Token, desc = 首次运行需开启，抓到后可关闭
+# 是否每次运行都通知
+notify = switch, true, false, tag=每次通知, desc=关闭后仅在22点汇总，失败/Token失效仍会单独提醒
 
-# 是否每次通知
-notify = switch,"true","false",tag=每次通知,desc=关闭后仅在22点发送汇总通知
+# 是否开启 Token 抓取
+enable_token_capture = switch, true, true, tag=抓取Token开关, desc=首次开启，成功后可关闭
+
+# 执行时间：10 / 16 / 22 点
+cron = input, "0 10-22/6 * * *", tag=执行时间, desc=10点、16点、22点运行
 
 [Script]
-# Token 抓取
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐获取Token, enable={enable_token_capture}
 
-# 签到 + 小红花
-cron "0 10-22/6 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐每日任务, argument="{notify}"
+cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐每日任务, argument="{notify}"
 
 [MITM]
 hostname = xcx.myinyun.com
