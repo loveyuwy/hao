@@ -1,16 +1,15 @@
 const $ = new Env("声荐组合任务");
 const tokenKey = "shengjian_auth_token";
 const statsKey = "shengjian_daily_stats";
-let isScriptFinished = false;
 
-// --- 参数解析 ---
+// --- 参数解析 (优化：增加去空格和默认值处理) ---
 const ARGS = (() => {
-  let args = { notify: "1" };
+  let args = { notify: "1" }; // 默认开启通知
   if (typeof $argument !== "undefined" && $argument) {
     let pairs = $argument.split("&");
     for (let pair of pairs) {
       let [k, v] = pair.split("=");
-      if (k) args[k] = v;
+      if (k) args[k.trim()] = v ? v.trim() : "";
     }
   }
   return args;
@@ -26,18 +25,15 @@ const commonHeaders = {
   "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
 
-// ----------------- 汇总逻辑处理 (修复点) -----------------
+// ----------------- 汇总逻辑处理 -----------------
 function getDailyStats() {
   const today = new Date().toISOString().slice(0, 10);
   let stats;
   try { 
     const stored = $.read(statsKey);
     stats = stored ? JSON.parse(stored) : null; 
-  } catch (e) { 
-    stats = null; 
-  }
+  } catch (e) { stats = null; }
 
-  // 如果没有历史记录，或者记录不是今天的，或者 logs 数组不存在，则初始化
   if (!stats || stats.date !== today || !Array.isArray(stats.logs)) {
     stats = { date: today, logs: [] };
   }
@@ -55,10 +51,10 @@ function signIn() {
     $.put(req, (err, res, data) => {
       if (err) return resolve({ status: 'error', message: '📡 签到: 网络错误' });
       const code = res ? (res.status || res.statusCode) : 0;
-      if (code === 401) return resolve({ status: 'token_error', message: 'Token 已过期' });
+      if (code == 401) return resolve({ status: 'token_error', message: 'Token 已过期' });
       try {
         const result = JSON.parse(data);
-        if ((code === 200 || code === "200") && result.msg === "ok") {
+        if ((code == 200) && result.msg === "ok") {
           const prize = result.data?.prizeName || "成功";
           resolve({ status: 'success', message: `✅ 签到: ${prize}` });
         } else if (String(result.msg || "").includes("已经")) {
@@ -80,8 +76,8 @@ function claimFlower() {
       if (data === "true") return resolve({ status: 'success', message: '🌺 已领小红花' });
       try {
         const obj = JSON.parse(data);
-        if (obj.statusCode === 401) resolve({ status: 'token_error', message: 'Token 已过期' });
-        else if (obj.statusCode === 400 && /未到领取时间/.test(obj.message || "")) resolve({ status: 'info', message: '⏰ 领花: 未到时间' });
+        if (obj.statusCode == 401) resolve({ status: 'token_error', message: 'Token 已过期' });
+        else if (obj.statusCode == 400 && /未到领取时间/.test(obj.message || "")) resolve({ status: 'info', message: '⏰ 领花: 未到时间' });
         else resolve({ status: 'info', message: `🌸 领花: ${obj.message || '未知响应'}` });
       } catch {
         if (data === 'false') resolve({ status: 'info', message: '👍 领花: 已领过' });
@@ -96,7 +92,8 @@ function claimFlower() {
   console.log("--- 声荐任务开始 ---");
   const now = new Date();
   const hour = now.getHours();
-  const isLastRun = (hour >= 22); // 22点或之后执行最后汇总
+  // 是否手动运行（手动运行时通常没有 $argument）
+  const isManual = (typeof $argument === "undefined" || !$argument);
 
   if (!token) {
     $.notify("❌ 声荐任务失败", "未找到令牌", "请先运行小程序获取token");
@@ -116,22 +113,27 @@ function claimFlower() {
     return $.done();
   }
 
-  // 通知逻辑
-  if (ARGS.notify === "1") {
+  // --- 通知逻辑 (修复重点) ---
+  // 1. 如果是手动点击运行
+  // 2. 或者配置参数为 notify=1
+  if (isManual || ARGS.notify == "1") {
     const body = `${signResult.message}\n${flowerResult.message}`;
     $.notify("声荐签到任务", "", body);
-  } else if (isLastRun) {
+    console.log("通知已发送: " + body.replace(/\n/g, " "));
+  } 
+  // 3. 否则，如果是22点汇总模式
+  else if (hour >= 22) {
     const body = stats.logs.join("\n");
     $.notify("📊 声荐每日汇总通知", `今日累计执行 ${stats.logs.length} 次`, body);
-  } else {
-    console.log(`静默运行中，当前${hour}点，非汇总时间(22点)`);
+  } 
+  else {
+    console.log(`静默运行中，当前${hour}点，通知模式：${ARGS.notify}`);
   }
 
   console.log("--- 任务结束 ---");
   $.done();
 })().catch((e) => {
-  console.log("脚本执行异常:");
-  console.log(e);
+  console.log("脚本异常:", e);
   $.done();
 });
 
