@@ -2,17 +2,14 @@ const $ = new Env("声荐组合任务");
 const tokenKey = "shengjian_auth_token";
 const statsKey = "shengjian_daily_stats";
 
-// --- Loon 参数解析优化 ---
+// --- 仿 Surge 参数解析 ---
 const ARGS = (() => {
-  let args = { notify: "1" }; 
+  let args = { notify: "1" };
   if (typeof $argument !== "undefined" && $argument) {
-    // 处理 Loon 可能传入的各种格式
-    if ($argument.indexOf("notify=") !== -1) {
-      let val = $argument.split("notify=")[1].split("&")[0].trim();
-      // 核心修复：排除 Loon 未替换的占位符 {notify}
-      if (val !== "{notify}" && val !== "") {
-        args.notify = val;
-      }
+    let pairs = $argument.split("&");
+    for (let pair of pairs) {
+      let [k, v] = pair.split("=");
+      if (k) args[k.trim()] = v ? v.trim() : "";
     }
   }
   return args;
@@ -28,7 +25,6 @@ const commonHeaders = {
   "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
 
-// ----------------- 功能函数 -----------------
 function getDailyStats() {
   const today = new Date().toISOString().slice(0, 10);
   let stats;
@@ -78,17 +74,15 @@ function claimFlower() {
   });
 }
 
-// ----------------- 主程序 -----------------
 (async () => {
   console.log("--- 声荐任务开始 ---");
-  const now = new Date();
-  const hour = now.getHours();
+  const hour = new Date().getHours();
   
-  // Loon 环境下判断是否为手动触发
-  const isManual = (typeof $argument === "undefined" || !$argument || $argument.includes("{notify}"));
+  // 核心判断：只有显式设置为 "0" 且不是手动运行，才进入静默模式
+  const isSilentMode = (ARGS.notify === "0" && typeof $argument !== "undefined" && $argument.indexOf("notify") !== -1);
 
   if (!token) {
-    $.notify("❌ 声荐失败", "未找到令牌", "请进入小程序重新捕获");
+    $.notify("❌ 声荐失败", "未找到令牌", "请进入小程序重新获取");
     return $.done();
   }
 
@@ -104,22 +98,22 @@ function claimFlower() {
     return $.done();
   }
 
-  // --- 通知逻辑 ---
-  if (isManual || ARGS.notify == "1") {
-    // 手动运行，或设置 notify 为 1 时：弹出通知
+  // 通知逻辑
+  if (!isSilentMode) {
+    // 只要不是明确的静默模式（notify=0），就弹窗通知
     $.notify("声荐签到", "", logEntry);
   } else if (hour >= 22) {
-    // 设置为 0 时：仅在 22 点汇总通知
-    $.notify("📊 声荐今日汇总", `累计执行 ${stats.logs.length} 次`, stats.logs.join("\n"));
+    // 静默模式下，22点汇总
+    $.notify("📊 声荐汇总通知", `今日累计执行 ${stats.logs.length} 次`, stats.logs.join("\n"));
   } else {
-    // 正常定时运行（非 22 点）：仅打印日志到 Loon 日志查看器
-    console.log(`[静默执行] ${logEntry}`);
+    // 其他时间仅打印日志
+    console.log(`[静默执行记录] ${logEntry}`);
   }
 
   console.log("--- 任务结束 ---");
   $.done();
 })().catch((e) => { 
-  console.log("脚本崩溃: " + e);
+  console.log(e);
   $.done(); 
 });
 
