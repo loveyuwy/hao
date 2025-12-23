@@ -1,124 +1,141 @@
-// ----------------- Loon 脚本逻辑部分 -----------------
-const $ = new Env("声荐组合任务");
-const tokenKey = "shengjian_auth_token";
-const statsKey = "shengjian_daily_stats";
+const $ = new Env("声荐每日任务");
 
-// --- 深度优化参数解析 ---
+// ================= 参数解析 =================
 const ARGS = (() => {
-  let args = { notify: "1" }; 
-  if (typeof $argument !== "undefined" && $argument) {
-    // 只要参数字符串里出现了 notify=0，就强制设为 "0"
-    if ($argument.indexOf("notify=0") !== -1) {
-      args.notify = "0";
-    }
+  let notify = "1";
+  if (typeof $argument !== "undefined") {
+    if (Array.isArray($argument)) notify = $argument[0];
+    else if (typeof $argument === "object" && $argument.notify !== undefined)
+      notify = $argument.notify;
+    else notify = $argument;
   }
-  return args;
+  notify = (notify === true || notify === "true" || notify === "1") ? "1" : "0";
+  return { notify };
 })();
 
-const rawToken = $.read(tokenKey);
-const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
+const ALWAYS_NOTIFY_ON_ERROR = true;
+const SUMMARY_HOUR = 22;
+const STATS_KEY = "shengjian_daily_stats";
+const tokenKey = "shengjian_auth_token";
 
-const commonHeaders = {
-  "Authorization": token,
+// ================= Token =================
+const rawToken = $.read(tokenKey);
+const token = rawToken
+  ? rawToken.startsWith("Bearer ")
+    ? rawToken
+    : `Bearer ${rawToken}`
+  : null;
+
+const headers = {
+  Authorization: token,
   "Content-Type": "application/json",
-  "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.64 NetType/4G Language/zh_CN",
-  "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
+  "User-Agent":
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) MicroMessenger/8.0.64",
+  Referer:
+    "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html",
 };
 
-// ... (signIn 和 claimFlower 函数保持不变) ...
+// ================= 时间判断 =================
+function isSummaryTime() {
+  const d = new Date();
+  return d.getHours() === SUMMARY_HOUR;
+}
 
+// ================= 统计 =================
+function getStats() {
+  const today = new Date().toISOString().slice(0, 10);
+  let s = {};
+  try {
+    s = JSON.parse($.read(STATS_KEY) || "{}");
+  } catch {}
+  if (s.date !== today) s = { date: today, runs: [] };
+  return s;
+}
+function saveStats(s) {
+  $.write(JSON.stringify(s), STATS_KEY);
+}
+
+// ================= 业务 =================
 function signIn() {
   return new Promise((resolve) => {
-    const req = { url: "https://xcx.myinyun.com:4438/napi/gift", headers: commonHeaders, body: "{}" };
-    $.put(req, (err, res, data) => {
-      if (err) return resolve({ status: 'error', message: '📡 网络连接失败' });
-      const code = res ? (res.status || res.statusCode) : 0;
-      if (code == 401) return resolve({ status: 'token_error', message: 'Token失效' });
-      try {
-        const result = JSON.parse(data);
-        if (result.msg === "ok") {
-          resolve({ status: 'success', message: `✅ 签到: ${result.data?.prizeName || "成功"}` });
-        } else if (String(result.msg).includes("已经")) {
-          resolve({ status: 'info', message: '📋 今日已签到' });
-        } else { resolve({ status: 'error', message: `🚫 ${result.msg}` }); }
-      } catch { resolve({ status: 'error', message: '🤯 解析失败' }); }
-    });
+    $.put(
+      { url: "https://xcx.myinyun.com:4438/napi/gift", headers, body: "{}" },
+      (e, r, d) => {
+        if (e) return resolve({ type: "error", msg: "签到网络错误" });
+        if (r.status == 401) return resolve({ type: "token", msg: "Token 已失效" });
+        try {
+          const j = JSON.parse(d);
+          if (j.msg === "ok")
+            resolve({ type: "success", msg: `签到成功：${j.data?.prizeName || ""}` });
+          else if (String(j.msg).includes("已经"))
+            resolve({ type: "info", msg: "今日已签到" });
+          else resolve({ type: "error", msg: j.msg || "签到失败" });
+        } catch {
+          resolve({ type: "error", msg: "签到解析失败" });
+        }
+      }
+    );
   });
 }
 
-function claimFlower() {
+function flower() {
   return new Promise((resolve) => {
-    const req = { url: "https://xcx.myinyun.com:4438/napi/flower/get", headers: commonHeaders, body: "{}" };
-    $.post(req, (err, res, data) => {
-      if (err) return resolve({ status: 'info', message: '⏰ 未到领花时间' });
-      if (data === "true") return resolve({ status: 'success', message: '🌺 已领小红花' });
-      try {
-        const obj = JSON.parse(data);
-        resolve({ status: 'info', message: `🌸 领花: ${obj.message || '当日已领'}` });
-      } catch { resolve({ status: 'info', message: '👍 领花完成' }); }
-    });
+    $.post(
+      { url: "https://xcx.myinyun.com:4438/napi/flower/get", headers, body: "{}" },
+      (e, r, d) => {
+        if (e) return resolve({ type: "info", msg: "小红花未到时间" });
+        if (d === "true") return resolve({ type: "success", msg: "已领小红花" });
+        if (d === "false") return resolve({ type: "info", msg: "小红花已领取" });
+        try {
+          const j = JSON.parse(d);
+          if (j.statusCode == 401)
+            resolve({ type: "token", msg: "Token 已失效" });
+          else resolve({ type: "info", msg: j.message || "小红花返回异常" });
+        } catch {
+          resolve({ type: "info", msg: "小红花未知响应" });
+        }
+      }
+    );
   });
 }
 
+// ================= 主逻辑 =================
 (async () => {
-  console.log("--- 声荐任务开始 ---");
-  const hour = new Date().getHours();
-  
   if (!token) {
-    $.notify("❌ 声荐失败", "未找到令牌", "");
+    $.notify("❌ 声荐失败", "", "未检测到 Token，请重新获取");
     return $.done();
   }
 
-  const [res1, res2] = await Promise.all([signIn(), claimFlower()]);
-  
-  let stats = getDailyStats();
-  const logEntry = `${res1.message} | ${res2.message}`;
-  stats.logs.push(`[${hour}点] ${logEntry}`);
-  saveDailyStats(stats);
+  const stats = getStats();
+  const results = await Promise.all([signIn(), flower()]);
+  const lines = results.map((r) => r.msg);
+  stats.runs.push(lines.join(" | "));
+  saveStats(stats);
 
-  // --- 重新编写的通知判定逻辑 ---
-  if (ARGS.notify === "0") {
-    // 如果设置了 0
-    if (hour >= 22) {
-      // 只有晚上 22 点以后才弹窗汇总
-      $.notify("📊 声荐今日汇总", `累计执行 ${stats.logs.length} 次`, stats.logs.join("\n"));
-    } else {
-      // 其他时间绝对不通知，只在 Loon 的日志里记录
-      console.log(`[静默执行] 参数为0，不触发弹窗: ${logEntry}`);
-    }
-  } else {
-    // 如果设置了 1，或者手动运行导致识别不到参数，则正常通知
-    $.notify("声荐签到任务", "", logEntry);
+  // Token / 错误 → 强制通知
+  if (results.some((r) => r.type === "token")) {
+    $.notify("🛑 声荐 Token 失效", "", "请重新打开声荐小程序获取 Token");
+    return $.done();
+  }
+  if (results.some((r) => r.type === "error")) {
+    $.notify("❌ 声荐任务异常", "", lines.join("\n"));
+    return $.done();
   }
 
-  console.log("--- 任务结束 ---");
+  // 普通通知
+  if (ARGS.notify === "1") {
+    $.notify("✅ 声荐任务完成", "", lines.join("\n"));
+  }
+
+  // 22 点汇总
+  if (ARGS.notify === "0" && isSummaryTime()) {
+    const summary = [`📊 声荐今日汇总 (${stats.date})`, "────────"];
+    stats.runs.forEach((l, i) => summary.push(`第 ${i + 1} 次：${l}`));
+    $.notify("📈 声荐每日汇总", "", summary.join("\n"));
+  }
+
   $.done();
-})().catch((e) => { $.done(); });
+})();
 
-// ... (Env 兼容层保持不变) ...
-function Env(name) {
-  this.name = name;
-  this.read = (k) => (typeof $persistentStore !== "undefined" ? $persistentStore.read(k) : null);
-  this.write = (v, k) => (typeof $persistentStore !== "undefined" ? $persistentStore.write(v, k) : false);
-  this.notify = (t, s, b) => {
-    if (typeof $notification !== "undefined") $notification.post(t, s, b);
-    console.log(`[日志记录] ${t}: ${s} ${b}`);
-  };
-  this.put = (r, c) => $httpClient.put(r, c);
-  this.post = (r, c) => $httpClient.post(r, c);
-  this.done = (v = {}) => (typeof $done !== "undefined" ? $done(v) : null);
-}
-
-function getDailyStats() {
-  const today = new Date().toISOString().slice(0, 10);
-  let stats;
-  try { stats = JSON.parse($.read(statsKey) || "{}"); } catch (e) { stats = null; }
-  if (!stats || stats.date !== today || !Array.isArray(stats.logs)) {
-    stats = { date: today, logs: [] };
-  }
-  return stats;
-}
-
-function saveDailyStats(stats) {
-  $.write(JSON.stringify(stats), statsKey);
-}
+// ================= Env =================
+function Env
