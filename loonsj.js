@@ -1,3 +1,36 @@
+// 首先定义 Env 函数
+function Env(name) {
+  this.name = name;
+  this.log = (...a) => console.log(...a);
+  this.notify = (t, s, b) => {
+    if (typeof $notification !== "undefined") $notification.post(t, s, b);
+    else if (typeof $notify !== "undefined") $notify(t, s, b);
+    else console.log(`[通知] ${t}\n${s}\n${b}`);
+  };
+  this.read = (k) => {
+    if (typeof $persistentStore !== "undefined") return $persistentStore.read(k);
+    if (typeof $prefs !== "undefined") return $prefs.valueForKey(k);
+    return null;
+  };
+  this.write = (v, k) => {
+    if (typeof $persistentStore !== "undefined") return $persistentStore.write(v, k);
+    if (typeof $prefs !== "undefined") return $prefs.setValueForKey(v, k);
+    return false;
+  };
+  this.put = (r, c) => {
+    if (typeof $httpClient !== "undefined") $httpClient.put(r, c);
+    else if (typeof $http !== "undefined") $http.put(r, c);
+    else c && c("No HTTP PUT", null, null);
+  };
+  this.post = (r, c) => {
+    if (typeof $httpClient !== "undefined") $httpClient.post(r, c);
+    else if (typeof $http !== "undefined") $http.post(r, c);
+    else c && c("No HTTP POST", null, null);
+  };
+  this.done = (v = {}) => typeof $done !== "undefined" && $done(v);
+}
+
+// 然后创建 Env 实例
 const $ = new Env("声荐组合任务");
 
 // 解析参数
@@ -86,7 +119,188 @@ let isScriptFinished = false;
 const rawToken = $.read(tokenKey);
 const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
 
-// ... 其他代码保持不变 ...
+const commonHeaders = {
+  "Authorization": token,
+  "Content-Type": "application/json",
+  "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.64 NetType/4G Language/zh_CN",
+  "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
+};
+
+// 获取每日统计
+function getDailyStats() {
+    const today = new Date().toISOString().slice(0, 10);
+    let stats = {};
+    try { 
+        stats = JSON.parse($.read(statsKey) || "{}"); 
+    } catch (e) { 
+        stats = {}; 
+    }
+    
+    // 如果是新的一天，重置统计
+    if (stats.date !== today) {
+        stats = { 
+            date: today, 
+            runCount: 0, 
+            tasks: {
+                signIn: { success: 0, failed: 0, messages: [] },
+                flower: { success: 0, failed: 0, messages: [] }
+            },
+            lastResults: []
+        };
+    }
+    return stats;
+}
+
+// 保存每日统计
+function saveDailyStats(stats) {
+    $.write(JSON.stringify(stats), statsKey);
+}
+
+// ----------------- Step 1: 签到 -----------------
+function signIn() {
+  return new Promise((resolve) => {
+    const req = {
+      url: "https://xcx.myinyun.com:4438/napi/gift",
+      headers: commonHeaders,
+      body: "{}"
+    };
+    $.put(req, (err, res, data) => {
+      if (err) return resolve({ 
+          status: 'error', 
+          message: '📡 签到: 网络错误',
+          success: false
+      });
+      
+      const code = res ? (res.status || res.statusCode) : 0;
+      if (code === 401) return resolve({ 
+          status: 'token_error', 
+          message: 'Token 已过期',
+          success: false
+      });
+      
+      try {
+        const result = JSON.parse(data);
+        if ((code === 200 || code === "200") && result.msg === "ok") {
+          const prize = result.data?.prizeName || "成功";
+          resolve({ 
+              status: 'success', 
+              message: `✅ 签到: ${prize}`,
+              success: true
+          });
+        } else if (String(result.msg || "").includes("已经")) {
+          resolve({ 
+              status: 'info', 
+              message: '📋 签到: 今天签到次数已用完',
+              success: false
+          });
+        } else {
+          resolve({ 
+              status: 'error', 
+              message: `🚫 签到: ${result.msg || "未知错误"}`,
+              success: false
+          });
+        }
+      } catch {
+        resolve({ 
+            status: 'error', 
+            message: '🤯 签到: 解析失败',
+            success: false
+        });
+      }
+    });
+  });
+}
+
+// ----------------- Step 2: 领取小红花 -----------------
+function claimFlower() {
+  return new Promise((resolve) => {
+    const req = {
+      url: "https://xcx.myinyun.com:4438/napi/flower/get",
+      headers: commonHeaders,
+      body: "{}"
+    };
+    $.post(req, (err, res, data) => {
+      if (err) return resolve({ 
+          status: 'info', 
+          message: '⏰ 领花: 超时或未到时间',
+          success: false
+      });
+      
+      if (data === "true") return resolve({ 
+          status: 'success', 
+          message: '🌺 已领小红花',
+          success: true
+      });
+      
+      try {
+        const obj = JSON.parse(data);
+        if (obj.statusCode === 401)
+          resolve({ 
+              status: 'token_error', 
+              message: 'Token 已过期',
+              success: false
+          });
+        else if (obj.statusCode === 400 && /未到领取时间/.test(obj.message || ""))
+          resolve({ 
+              status: 'info', 
+              message: '⏰ 领花: 未到时间',
+              success: false
+          });
+        else
+          resolve({ 
+              status: 'info', 
+              message: `🌸 领花: ${obj.message || '未知响应'}`,
+              success: false
+          });
+      } catch {
+        if (data === 'false') resolve({ 
+            status: 'info', 
+            message: '👍 领花: 已领过',
+            success: false
+        });
+        else resolve({ 
+            status: 'info', 
+            message: '🤔 领花: 未知响应',
+            success: false
+        });
+      }
+    });
+  });
+}
+
+// 发送每日汇总通知
+function sendDailySummary(stats) {
+    const now = new Date();
+    const runTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    let summary = [`📊 声荐每日汇总 (${stats.date})`];
+    summary.push(`🔄 运行次数: ${stats.runCount}`);
+    summary.push(`───────────`);
+    
+    // 签到统计
+    const signTasks = stats.tasks.signIn;
+    summary.push(`📋 签到任务:`);
+    summary.push(`   ✅ 成功: ${signTasks.success} 次`);
+    summary.push(`   ❌ 失败: ${signTasks.failed} 次`);
+    
+    // 领花统计
+    const flowerTasks = stats.tasks.flower;
+    summary.push(`🌸 领花任务:`);
+    summary.push(`   ✅ 成功: ${flowerTasks.success} 次`);
+    summary.push(`   ❌ 失败: ${flowerTasks.failed} 次`);
+    
+    summary.push(`───────────`);
+    summary.push(`⏰ 上次运行: ${runTime}`);
+    
+    if (signTasks.messages.length > 0) {
+        summary.push(`📝 最近签到: ${signTasks.messages[signTasks.messages.length - 1]}`);
+    }
+    if (flowerTasks.messages.length > 0) {
+        summary.push(`📝 最近领花: ${flowerTasks.messages[flowerTasks.messages.length - 1]}`);
+    }
+    
+    $.notify("声荐每日汇总", "", summary.join("\n"));
+}
 
 // ----------------- 主逻辑 -----------------
 (async () => {
@@ -183,5 +397,3 @@ const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${
   }
   $.done();
 });
-
-// ... 其他函数保持不变 ...
