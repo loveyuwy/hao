@@ -1,103 +1,55 @@
-/*
-* 声荐每日自动签到 (Fix Version)
-* * 更新说明:
-* 1. 增加了参数解析的容错性 (自动去除可能存在的引号)
-* 2. 增加了 [DEBUG] 日志，方便查看 Loon 实际传入了什么参数
-*/
-
 const $ = new Env("声荐组合任务");
 
-// --- 参数解析 (增强版) ---
+// 解析参数
 const ARGS = (() => {
     let args = { notify: "1" }; // 默认开启通知
-    let input = null;
-
+    
+    // 解析参数
     if (typeof $argument !== "undefined") {
-        input = $argument;
-    } else if (typeof $environment !== "undefined" && $environment.sourcePath) {
-        input = $environment.sourcePath.split(/[?#]/)[1];
-    }
-
-    if (input) {
-        console.log(`[DEBUG] 接收到的原始参数: ${input}`); // 打印日志方便调试
-        
-        // 处理 Loon 可能传入的对象格式
-        if (typeof input === "object") {
-             if (input.notify !== undefined) {
-                args.notify = String(input.notify);
-             }
-        } else {
-            // 处理字符串格式: notify={notify} 或 notify="true"
-            let str = String(input).trim();
-            // 移除首尾可能存在的方括号或引号 (针对整个字符串)
-            str = str.replace(/^\[|\]$/g, "").replace(/^"|"$/g, "");
-            
-            if (str.includes("=") || str.includes("&")) {
-                str.split(/&|,/).forEach(item => {
-                    let [k, v] = item.split("=");
-                    if (k && v) {
-                        // 关键修复: 移除值周围可能存在的引号 (例如 "true" -> true)
-                        let val = decodeURIComponent(v.trim()).replace(/^"|"$/g, "");
-                        args[k.trim()] = val;
-                    }
-                });
-            } else {
-                // 只有一个值的情况
-                args.notify = str;
+        // Loon格式: notify=true
+        if (typeof $argument === "string") {
+            $argument.split("&").forEach(item => {
+                const [k, v] = item.split("=");
+                if (k && v) args[k.trim()] = v.trim();
+            });
+        } else if (typeof $argument === "object") {
+            // 对象格式
+            if ($argument.notify !== undefined) {
+                args.notify = ($argument.notify === true || $argument.notify === "true" || $argument.notify === "1") ? "1" : "0";
             }
         }
     }
-
-    // 统一转换为 "1" (开启) 或 "0" (关闭)
-    // 兼容: true, "true", 1, "1", "TRUE"
-    let rawNotify = String(args.notify).toLowerCase();
-    if (rawNotify === "true" || rawNotify === "1") {
-        args.notify = "1";
-    } else {
-        args.notify = "0";
+    
+    // 如果没有参数，尝试从环境变量获取
+    if (!args.notify && typeof $environment !== "undefined" && $environment.sourcePath) {
+        const sourcePath = $environment.sourcePath;
+        const queryString = sourcePath.split(/[?#]/)[1];
+        if (queryString) {
+            const params = new URLSearchParams(queryString);
+            if (params.has("notify")) {
+                const notifyVal = params.get("notify");
+                args.notify = (notifyVal === "true" || notifyVal === "1") ? "1" : "0";
+            }
+        }
     }
-
+    
     return args;
 })();
 
-const CONFIG = {
-    LAST_RUN_HOUR: 22, // 汇总通知的小时 (22点)
-    NOTIFY: ARGS.notify
-};
+console.log(`通知模式: ${ARGS.notify === "1" ? "每次通知" : "仅汇总通知"}`);
 
-console.log(`🔔 通知配置状态: ${CONFIG.NOTIFY === "1" ? "✅ 开启 (每次都通知)" : "🔕 关闭 (仅汇总)"}`);
-
-// --- 持久化存储 Key ---
 const tokenKey = "shengjian_auth_token";
-const STATS_KEY = "shengjian_daily_stats";
+const statsKey = "shengjian_daily_stats";
 
-// --- 辅助函数 ---
-
+// 判断是否为最后一次运行（22点运行）
 const isLastRun = (() => {
     const now = new Date();
     const hour = now.getHours();
-    return hour === CONFIG.LAST_RUN_HOUR;
+    // 22:00-22:59 之间算最后一次运行
+    return hour === 22;
 })();
 
-function getDailyStats() {
-    const today = new Date().toISOString().slice(0, 10);
-    let stats = {};
-    try { 
-        stats = JSON.parse($.read(STATS_KEY) || "{}"); 
-    } catch (e) { 
-        stats = {}; 
-    }
-    if (stats.date !== today) {
-        stats = { date: today, runCount: 0, logs: [] };
-    }
-    return stats;
-}
-
-function saveDailyStats(stats) {
-    $.write(JSON.stringify(stats), STATS_KEY);
-}
-
-// ----------------- 业务逻辑 -----------------
+let isScriptFinished = false;
 
 const rawToken = $.read(tokenKey);
 const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
@@ -109,6 +61,37 @@ const commonHeaders = {
   "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
 
+// 获取每日统计
+function getDailyStats() {
+    const today = new Date().toISOString().slice(0, 10);
+    let stats = {};
+    try { 
+        stats = JSON.parse($.read(statsKey) || "{}"); 
+    } catch (e) { 
+        stats = {}; 
+    }
+    
+    // 如果是新的一天，重置统计
+    if (stats.date !== today) {
+        stats = { 
+            date: today, 
+            runCount: 0, 
+            tasks: {
+                signIn: { success: 0, failed: 0, messages: [] },
+                flower: { success: 0, failed: 0, messages: [] }
+            },
+            lastResults: []
+        };
+    }
+    return stats;
+}
+
+// 保存每日统计
+function saveDailyStats(stats) {
+    $.write(JSON.stringify(stats), statsKey);
+}
+
+// ----------------- Step 1: 签到 -----------------
 function signIn() {
   return new Promise((resolve) => {
     const req = {
@@ -117,26 +100,53 @@ function signIn() {
       body: "{}"
     };
     $.put(req, (err, res, data) => {
-      if (err) return resolve({ status: 'error', message: '📡 签到: 网络错误' });
+      if (err) return resolve({ 
+          status: 'error', 
+          message: '📡 签到: 网络错误',
+          success: false
+      });
+      
       const code = res ? (res.status || res.statusCode) : 0;
-      if (code === 401) return resolve({ status: 'token_error', message: 'Token 已过期' });
+      if (code === 401) return resolve({ 
+          status: 'token_error', 
+          message: 'Token 已过期',
+          success: false
+      });
+      
       try {
         const result = JSON.parse(data);
         if ((code === 200 || code === "200") && result.msg === "ok") {
           const prize = result.data?.prizeName || "成功";
-          resolve({ status: 'success', message: `✅ 签到: ${prize}` });
+          resolve({ 
+              status: 'success', 
+              message: `✅ 签到: ${prize}`,
+              success: true
+          });
         } else if (String(result.msg || "").includes("已经")) {
-          resolve({ status: 'info', message: '📋 签到: 今天已签过' });
+          resolve({ 
+              status: 'info', 
+              message: '📋 签到: 今天签到次数已用完',
+              success: false
+          });
         } else {
-          resolve({ status: 'error', message: `🚫 签到: ${result.msg || "未知错误"}` });
+          resolve({ 
+              status: 'error', 
+              message: `🚫 签到: ${result.msg || "未知错误"}`,
+              success: false
+          });
         }
       } catch {
-        resolve({ status: 'error', message: '🤯 签到: 解析失败' });
+        resolve({ 
+            status: 'error', 
+            message: '🤯 签到: 解析失败',
+            success: false
+        });
       }
     });
   });
 }
 
+// ----------------- Step 2: 领取小红花 -----------------
 function claimFlower() {
   return new Promise((resolve) => {
     const req = {
@@ -145,54 +155,144 @@ function claimFlower() {
       body: "{}"
     };
     $.post(req, (err, res, data) => {
-      if (err) return resolve({ status: 'info', message: '⏰ 领花: 超时' });
-      if (data === "true") return resolve({ status: 'success', message: '🌺 已领小红花' });
+      if (err) return resolve({ 
+          status: 'info', 
+          message: '⏰ 领花: 超时或未到时间',
+          success: false
+      });
+      
+      if (data === "true") return resolve({ 
+          status: 'success', 
+          message: '🌺 已领小红花',
+          success: true
+      });
+      
       try {
         const obj = JSON.parse(data);
         if (obj.statusCode === 401)
-          resolve({ status: 'token_error', message: 'Token 已过期' });
+          resolve({ 
+              status: 'token_error', 
+              message: 'Token 已过期',
+              success: false
+          });
         else if (obj.statusCode === 400 && /未到领取时间/.test(obj.message || ""))
-          resolve({ status: 'info', message: '⏰ 领花: 未到时间' });
+          resolve({ 
+              status: 'info', 
+              message: '⏰ 领花: 未到时间',
+              success: false
+          });
         else
-          resolve({ status: 'info', message: `🌸 领花: ${obj.message || '未知响应'}` });
+          resolve({ 
+              status: 'info', 
+              message: `🌸 领花: ${obj.message || '未知响应'}`,
+              success: false
+          });
       } catch {
-        if (data === 'false') resolve({ status: 'info', message: '👍 领花: 已领过' });
-        else resolve({ status: 'info', message: '🤔 领花: 未知响应' });
+        if (data === 'false') resolve({ 
+            status: 'info', 
+            message: '👍 领花: 已领过',
+            success: false
+        });
+        else resolve({ 
+            status: 'info', 
+            message: '🤔 领花: 未知响应',
+            success: false
+        });
       }
     });
   });
 }
 
-// ----------------- 主程序 -----------------
+// 发送每日汇总通知
+function sendDailySummary(stats) {
+    const now = new Date();
+    const runTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    let summary = [`📊 声荐每日汇总 (${stats.date})`];
+    summary.push(`🔄 运行次数: ${stats.runCount}`);
+    summary.push(`───────────`);
+    
+    // 签到统计
+    const signTasks = stats.tasks.signIn;
+    summary.push(`📋 签到任务:`);
+    summary.push(`   ✅ 成功: ${signTasks.success} 次`);
+    summary.push(`   ❌ 失败: ${signTasks.failed} 次`);
+    
+    // 领花统计
+    const flowerTasks = stats.tasks.flower;
+    summary.push(`🌸 领花任务:`);
+    summary.push(`   ✅ 成功: ${flowerTasks.success} 次`);
+    summary.push(`   ❌ 失败: ${flowerTasks.failed} 次`);
+    
+    summary.push(`───────────`);
+    summary.push(`⏰ 上次运行: ${runTime}`);
+    
+    if (signTasks.messages.length > 0) {
+        summary.push(`📝 最近签到: ${signTasks.messages[signTasks.messages.length - 1]}`);
+    }
+    if (flowerTasks.messages.length > 0) {
+        summary.push(`📝 最近领花: ${flowerTasks.messages[flowerTasks.messages.length - 1]}`);
+    }
+    
+    $.notify("声荐每日汇总", "", summary.join("\n"));
+}
+
+// ----------------- 主逻辑 -----------------
 (async () => {
   console.log("--- 声荐组合任务开始执行 ---");
+  
+  // 获取统计信息
+  const dailyStats = getDailyStats();
+  dailyStats.runCount++;
 
   if (!token) {
-    $.notify("❌ 声荐任务失败", "未找到令牌", "请先运行“声荐获取令牌”脚本。");
+    $.notify("❌ 声荐任务失败", "未找到令牌", "请先运行\"声荐获取令牌\"脚本。");
+    isScriptFinished = true;
+    saveDailyStats(dailyStats);
     return $.done();
   }
-
-  let dailyStats = getDailyStats();
-  dailyStats.runCount++;
 
   const [signResult, flowerResult] = await Promise.all([signIn(), claimFlower()]);
   console.log("--- 执行结果 ---");
   console.log(JSON.stringify([signResult, flowerResult], null, 2));
 
+  // 更新统计
+  if (signResult.success) {
+      dailyStats.tasks.signIn.success++;
+  } else if (signResult.status === 'error') {
+      dailyStats.tasks.signIn.failed++;
+  }
+  dailyStats.tasks.signIn.messages.push(signResult.message);
+  
+  if (flowerResult.success) {
+      dailyStats.tasks.flower.success++;
+  } else if (flowerResult.status === 'error') {
+      dailyStats.tasks.flower.failed++;
+  }
+  dailyStats.tasks.flower.messages.push(flowerResult.message);
+  
+  // 只保留最近5条消息
+  if (dailyStats.tasks.signIn.messages.length > 5) {
+      dailyStats.tasks.signIn.messages = dailyStats.tasks.signIn.messages.slice(-5);
+  }
+  if (dailyStats.tasks.flower.messages.length > 5) {
+      dailyStats.tasks.flower.messages = dailyStats.tasks.flower.messages.slice(-5);
+  }
+  
+  // 保存统计
+  saveDailyStats(dailyStats);
+
   if (signResult.status === 'token_error' || flowerResult.status === 'token_error') {
-    const msg = "Token 已过期，请重新获取";
-    if (CONFIG.NOTIFY === "1") {
-        $.notify("🛑 声荐认证失败", "", msg);
-    } else {
-        dailyStats.logs.push(`🛑 ${msg}`);
-        saveDailyStats(dailyStats);
+    if (ARGS.notify === "1" || isLastRun) {
+        $.notify("🛑 声荐认证失败", "Token 已过期", "请重新获取令牌后再执行。");
     }
+    isScriptFinished = true;
     return $.done();
   }
 
-  const currentLines = [];
-  if (signResult.message) currentLines.push(signResult.message);
-  if (flowerResult.message) currentLines.push(flowerResult.message);
+  const lines = [];
+  if (signResult.message) lines.push(signResult.message);
+  if (flowerResult.message) lines.push(flowerResult.message);
 
   const hasError = [signResult, flowerResult].some(r => r.status === 'error');
   const hasSuccess = [signResult, flowerResult].some(r => r.status === 'success');
@@ -202,42 +302,31 @@ function claimFlower() {
   else if (hasSuccess) title = "✅ 声荐签到完成";
   else title = "⚠️ 声荐任务提醒";
 
-  const body = currentLines.join("\n");
-  console.log(`本次通知内容:\n${body}`);
+  const body = lines.join("\n");
 
-  currentLines.forEach(line => {
-      if (!dailyStats.logs.includes(line)) {
-          dailyStats.logs.push(line);
-      }
-  });
-  saveDailyStats(dailyStats);
-
-  if (CONFIG.NOTIFY === "1") {
-      console.log("🔔 触发即时通知");
-      $.notify(title, "", body);
+  // 决定是否发送通知
+  if (ARGS.notify === "1") {
+    // 每次通知模式：每次运行都发送通知
+    $.notify(title, "", body);
+  } else if (isLastRun) {
+    // 仅汇总模式：只有在22点运行时发送汇总通知
+    sendDailySummary(dailyStats);
   } else {
-      console.log("📝 静默模式，跳过即时通知");
-      if (isLastRun) {
-          console.log("📈 触发每日汇总通知");
-          let summary = [`📊 声荐今日汇总 (${dailyStats.date})`];
-          summary.push(`🔄 运行次数: ${dailyStats.runCount}`);
-          summary.push(`───────────`);
-          if (dailyStats.logs.length > 0) {
-              summary.push(dailyStats.logs.join("\n"));
-          } else {
-              summary.push("无执行记录");
-          }
-          $.notify("声荐每日汇总", "", summary.join("\n"));
-      }
+    // 非22点且非每次通知模式：不发送通知
+    console.log("静默模式，跳过通知");
   }
 
+  console.log(`通知内容:\n${body}`);
   console.log("--- 声荐组合任务结束 ---");
+  isScriptFinished = true;
   $.done();
-
 })().catch((e) => {
   const errMsg = (e && typeof e === 'object') ? (e.message || JSON.stringify(e)) : String(e);
-  $.log(`❌ 异常: ${errMsg}`);
-  if (CONFIG.NOTIFY === "1") $.notify("💥 声荐脚本异常", "执行错误", errMsg);
+  if (!isScriptFinished) {
+      if (ARGS.notify === "1" || isLastRun) {
+          $.notify("💥 声荐脚本异常", "执行错误", errMsg);
+      }
+  }
   $.done();
 });
 
