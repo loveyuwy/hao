@@ -7,16 +7,19 @@ const BUSINESS_CONSTANTS = {
   LAST_RUN_HOUR: 22, // 汇总通知的小时
 };
 
-// --- 解析参数 ---
+// --- 参数解析 (适配面板开关) ---
 const ARGS = (() => {
-  let isNotify = "1";
-  if (typeof $argument !== "undefined") {
-    isNotify = ($argument === "true" || $argument === "1") ? "1" : "0";
+  let isNotify = "1"; // 默认开启
+  if (typeof $argument !== "undefined" && $argument !== "") {
+    // 兼容 true/false 或 1/0
+    if ($argument === "false" || $argument === "0") {
+      isNotify = "0";
+    }
   }
   return { notify: isNotify };
 })();
 
-// --- 判断是否是最后一次运行 (22点) ---
+// --- 判断是否是汇总时间 ---
 const isLastRun = (() => {
   const now = new Date();
   return now.getHours() === BUSINESS_CONSTANTS.LAST_RUN_HOUR;
@@ -54,7 +57,7 @@ function signIn() {
       if (err) return resolve("📡 签到: 网络错误");
       try {
         const result = JSON.parse(data);
-        if (res.status == 401) return resolve("Token 过期");
+        if (res && (res.status == 401 || res.statusCode == 401)) return resolve("Token 过期");
         if (result.msg === "ok") return resolve(`✅ 签到: ${result.data?.prizeName || "成功"}`);
         if (String(result.msg).includes("已经")) return resolve("📋 签到: 已完成");
         resolve(`🚫 签到: ${result.msg}`);
@@ -66,11 +69,12 @@ function signIn() {
 function claimFlower() {
   return new Promise((resolve) => {
     $.post({ url: "https://xcx.myinyun.com:4438/napi/flower/get", headers: commonHeaders, body: "{}" }, (err, res, data) => {
-      if (err || data === "false") return resolve("🌸 领花: 已领或未到时间");
+      if (err) return resolve("🌸 领花: 请求失败");
+      if (data === "false") return resolve("🌸 领花: 今日次数已用完");
       if (data === "true") return resolve("🌺 领花: 成功");
       try {
         const obj = JSON.parse(data);
-        resolve(`🌸 领花: ${obj.message || '未知'}`);
+        resolve(`🌸 领花: ${obj.message || '已领过'}`);
       } catch { resolve("🤔 领花: 响应异常"); }
     });
   });
@@ -87,23 +91,27 @@ function claimFlower() {
   const sMsg = await signIn();
   const fMsg = await claimFlower();
   const currentSummary = `${sMsg} | ${fMsg}`;
-  console.log(currentSummary);
-
-  // 更新统计
+  
+  // 更新统计数据
   let stats = getDailyStats();
-  stats.results.push(`[${new Date().getHours()}点] ${currentSummary}`);
+  const timeStr = new Date().getHours() + ":" + String(new Date().getMinutes()).padStart(2, '0');
+  stats.results.push(`[${timeStr}] ${currentSummary}`);
   saveDailyStats(stats);
 
-  // 通知逻辑
+  // 通知逻辑判断
   if (ARGS.notify === "1") {
-    // 每次通知模式
+    // 模式1：每次运行都发送通知
     $.notify("声荐签到结果", "", currentSummary);
+    console.log("每次通知模式已执行");
   } else if (isLastRun) {
-    // 汇总模式且到了22点
+    // 模式0：汇总通知（仅在22点执行）
     const summaryBody = stats.results.join("\n");
     $.notify("声荐每日汇总报告", `日期: ${stats.date}`, summaryBody);
+    console.log("22点汇总通知已发送");
   } else {
-    console.log("静默运行中，等待22点汇总...");
+    // 模式0且非汇总时间
+    console.log(`当前运行结果: ${currentSummary}`);
+    console.log(`静默模式运行中，结果已存入统计，等待${BUSINESS_CONSTANTS.LAST_RUN_HOUR}点汇总通知...`);
   }
 
   $.done();
@@ -114,8 +122,12 @@ function Env(name) {
   this.name = name;
   this.read = (k) => (typeof $persistentStore !== "undefined" ? $persistentStore.read(k) : $prefs.valueForKey(k));
   this.write = (v, k) => (typeof $persistentStore !== "undefined" ? $persistentStore.write(v, k) : $prefs.setValueForKey(v, k));
-  this.notify = (t, s, b) => (typeof $notification !== "undefined" ? $notification.post(t, s, b) : $notify(t, s, b));
+  this.notify = (t, s, b) => {
+    if (typeof $notification !== "undefined") $notification.post(t, s, b);
+    else if (typeof $notify !== "undefined") $notify(t, s, b);
+    else console.log(`[通知] ${t}\n${s}\n${b}`);
+  };
   this.put = (r, c) => (typeof $httpClient !== "undefined" ? $httpClient.put(r, c) : $http.put(r, c));
   this.post = (r, c) => (typeof $httpClient !== "undefined" ? $httpClient.post(r, c) : $http.post(r, c));
-  this.done = (v = {}) => $done(v);
+  this.done = (v = {}) => (typeof $done !== "undefined" ? $done(v) : console.log("Script Done"));
 }
