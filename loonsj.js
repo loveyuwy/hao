@@ -1,8 +1,19 @@
+/*
+* 声荐每日自动签到 (Modified Version)
+* * 参数说明:
+* - notify: 1 or true = 每次运行都通知 (默认)
+* 0 or false = 仅在 22:00 (最后一次运行) 发送汇总通知
+*
+* 运行逻辑:
+* - 脚本会自动记录每天的运行结果。
+* - 如果开启静默模式，只有在 22:00-22:59 期间运行时，才会把当天的所有记录汇总推送。
+*/
+
 const $ = new Env("声荐组合任务");
 
-// --- 参数解析模块 (移植自酷我脚本) ---
+// --- 参数获取与配置 ---
 const ARGS = (() => {
-    let args = { notify: "true" }; // 默认开启通知
+    let args = { notify: "1" };
     let input = null;
 
     if (typeof $argument !== "undefined") {
@@ -12,45 +23,61 @@ const ARGS = (() => {
     }
 
     if (input) {
-        if (typeof input === "object") {
-            // 处理 argument 为对象的情况 (Loon/Surge 某些版本)
-            if (input.notify !== undefined) {
-                 args.notify = (input.notify === true || input.notify === "true" || input.notify === "1" || input.notify === 1) ? "true" : "false";
-            }
-        } else {
-            // 处理字符串形式 (Surge/QuantumultX)
-            let str = String(input).trim().replace(/^\[|\]$/g, "").replace(/^"|"$/g, "");
-            if (str.includes("=") || str.includes("&")) {
-                str.split(/&|,/).forEach(item => {
-                    let [k, v] = item.split("=");
-                    if (k && v) args[k.trim()] = decodeURIComponent(v.trim());
-                });
-            } else {
-                // 如果只有一个参数且不是kv对，尝试直接解析
-                 args.notify = (str === "true" || str === "1") ? "true" : "false";
-            }
+        let str = String(input).trim().replace(/^\[|\]$/g, "").replace(/^"|"$/g, "");
+        if (str.includes("=") || str.includes("&")) {
+            str.split(/&|,/).forEach(item => {
+                let [k, v] = item.split("=");
+                if (k && v) args[k.trim()] = decodeURIComponent(v.trim());
+            });
         }
     }
-    
-    // 再次确保 notify 是字符串 "true" 或 "false"
-    if (args.notify === true || args.notify === "1") args.notify = "true";
-    if (args.notify === false || args.notify === "0") args.notify = "false";
-
+    // 规范化 notify 参数: "true" 或 "1" 为开启，其他为关闭
+    args.notify = (args.notify === "true" || args.notify === "1" || args.notify === true) ? "1" : "0";
     return args;
 })();
 
-console.log(`通知模式: ${ARGS.notify === "true" ? "每次通知" : "静默 (仅22点汇总)"}`);
+const CONFIG = {
+    LAST_RUN_HOUR: 22, // 汇总通知的小时 (22点)
+    NOTIFY: ARGS.notify
+};
 
-// 判断是否为汇总时间 (22点)
+console.log(`🔔 通知模式: ${CONFIG.NOTIFY === "1" ? "每次通知" : `静默运行 (仅${CONFIG.LAST_RUN_HOUR}点汇总)`}`);
+
+// --- 持久化存储 Key ---
+const tokenKey = "shengjian_auth_token";
+const STATS_KEY = "shengjian_daily_stats";
+
+// --- 辅助函数 ---
+
+// 判断是否为最后一次运行时间段 (22:00 - 22:59)
 const isLastRun = (() => {
     const now = new Date();
     const hour = now.getHours();
-    // 判定 22:00-22:59 为最后一次运行/汇总时间
-    return hour === 22;
+    return hour === CONFIG.LAST_RUN_HOUR;
 })();
 
-const tokenKey = "shengjian_auth_token";
-let isScriptFinished = false;
+// 获取今日统计数据
+function getDailyStats() {
+    const today = new Date().toISOString().slice(0, 10);
+    let stats = {};
+    try { 
+        stats = JSON.parse($.read(STATS_KEY) || "{}"); 
+    } catch (e) { 
+        stats = {}; 
+    }
+    // 如果不是今天的日期，重置数据
+    if (stats.date !== today) {
+        stats = { date: today, runCount: 0, logs: [] };
+    }
+    return stats;
+}
+
+// 保存统计数据
+function saveDailyStats(stats) {
+    $.write(JSON.stringify(stats), STATS_KEY);
+}
+
+// ----------------- 业务逻辑 -----------------
 
 const rawToken = $.read(tokenKey);
 const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
@@ -62,7 +89,7 @@ const commonHeaders = {
   "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
 
-// ----------------- Step 1: 签到 -----------------
+// Step 1: 签到
 function signIn() {
   return new Promise((resolve) => {
     const req = {
@@ -80,7 +107,7 @@ function signIn() {
           const prize = result.data?.prizeName || "成功";
           resolve({ status: 'success', message: `✅ 签到: ${prize}` });
         } else if (String(result.msg || "").includes("已经")) {
-          resolve({ status: 'info', message: '📋 签到: 今天签到次数已用完' });
+          resolve({ status: 'info', message: '📋 签到: 今天已签过' });
         } else {
           resolve({ status: 'error', message: `🚫 签到: ${result.msg || "未知错误"}` });
         }
@@ -91,7 +118,7 @@ function signIn() {
   });
 }
 
-// ----------------- Step 2: 领取小红花 -----------------
+// Step 2: 领取小红花
 function claimFlower() {
   return new Promise((resolve) => {
     const req = {
@@ -118,29 +145,41 @@ function claimFlower() {
   });
 }
 
-// ----------------- 主逻辑 -----------------
+// ----------------- 主程序 -----------------
 (async () => {
   console.log("--- 声荐组合任务开始执行 ---");
 
+  // 1. 检查 Token
   if (!token) {
     $.notify("❌ 声荐任务失败", "未找到令牌", "请先运行“声荐获取令牌”脚本。");
-    isScriptFinished = true;
     return $.done();
   }
 
+  // 2. 读取今日数据
+  let dailyStats = getDailyStats();
+  dailyStats.runCount++;
+
+  // 3. 执行任务
   const [signResult, flowerResult] = await Promise.all([signIn(), claimFlower()]);
   console.log("--- 执行结果 ---");
   console.log(JSON.stringify([signResult, flowerResult], null, 2));
 
+  // 4. Token 过期处理
   if (signResult.status === 'token_error' || flowerResult.status === 'token_error') {
-    $.notify("🛑 声荐认证失败", "Token 已过期", "请重新获取令牌后再执行。");
-    isScriptFinished = true;
+    const msg = "请重新获取令牌后再执行。";
+    if (CONFIG.NOTIFY === "1") {
+        $.notify("🛑 声荐认证失败", "Token 已过期", msg);
+    } else {
+        dailyStats.logs.push(`🛑 Token 已过期: ${msg}`);
+        saveDailyStats(dailyStats);
+    }
     return $.done();
   }
 
-  const lines = [];
-  if (signResult.message) lines.push(signResult.message);
-  if (flowerResult.message) lines.push(flowerResult.message);
+  // 5. 构建本次结果文本
+  const currentLines = [];
+  if (signResult.message) currentLines.push(signResult.message);
+  if (flowerResult.message) currentLines.push(flowerResult.message);
 
   const hasError = [signResult, flowerResult].some(r => r.status === 'error');
   const hasSuccess = [signResult, flowerResult].some(r => r.status === 'success');
@@ -150,36 +189,52 @@ function claimFlower() {
   else if (hasSuccess) title = "✅ 声荐签到完成";
   else title = "⚠️ 声荐任务提醒";
 
-  // 如果是汇总通知(22点)，修改一下标题以示区分
-  if (isLastRun && ARGS.notify === "false") {
-      title = "声荐任务汇总 (22点)";
-  }
+  const body = currentLines.join("\n");
+  console.log(`本次运行结果:\n${body}`);
 
-  const body = lines.join("\n");
+  // 6. 记录到今日统计 (去重，避免重复记录相同的状态)
+  currentLines.forEach(line => {
+      // 简单去重：如果日志里还没有这句话，就加进去
+      if (!dailyStats.logs.includes(line)) {
+          dailyStats.logs.push(line);
+      }
+  });
+  saveDailyStats(dailyStats);
 
-  console.log(`通知内容:\n${title}\n${body}`);
-
-  // --- 通知逻辑控制 ---
-  // 1. 如果 notify 开关为 true -> 发送通知
-  // 2. 如果 notify 开关为 false 但当前是 22点 (isLastRun) -> 发送通知 (作为汇总)
-  // 3. 否则 -> 仅打印日志
-  if (ARGS.notify === "true" || isLastRun) {
+  // 7. 通知逻辑
+  if (CONFIG.NOTIFY === "1") {
+      // 模式 1: 每次都通知
       $.notify(title, "", body);
-      console.log("✅ 已发送通知");
   } else {
-      console.log("🔕 静默模式: 非汇总时间，跳过通知");
+      // 模式 0: 静默，仅日志
+      console.log("📝 静默模式，跳过即时通知");
+      
+      // 如果是 22 点 (汇总时间)，发送汇总
+      if (isLastRun) {
+          console.log("📈 触发每日汇总通知");
+          let summary = [`📊 声荐今日汇总 (${dailyStats.date})`];
+          summary.push(`🔄 运行次数: ${dailyStats.runCount}`);
+          summary.push(`───────────`);
+          if (dailyStats.logs.length > 0) {
+              summary.push(dailyStats.logs.join("\n"));
+          } else {
+              summary.push("无执行记录");
+          }
+          $.notify("声荐每日汇总", "", summary.join("\n"));
+      }
   }
 
   console.log("--- 声荐组合任务结束 ---");
-  isScriptFinished = true;
   $.done();
+
 })().catch((e) => {
   const errMsg = (e && typeof e === 'object') ? (e.message || JSON.stringify(e)) : String(e);
-  if (!isScriptFinished) $.notify("💥 声荐脚本异常", "执行错误", errMsg);
+  $.log(`❌ 异常: ${errMsg}`);
+  if (CONFIG.NOTIFY === "1") $.notify("💥 声荐脚本异常", "执行错误", errMsg);
   $.done();
 });
 
-// ----------------- Env 兼容层 -----------------
+// ----------------- Env 兼容层 (保留原版) -----------------
 function Env(name) {
   this.name = name;
   this.log = (...a) => console.log(...a);
