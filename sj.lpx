@@ -11,11 +11,11 @@ capture = switch, true, tag=自动抓取开关, desc=是否开启Token捕获
 notify_mode = select, "0", "1", tag=通知模式, desc=1=每次通知, 0=仅22点汇总(默认0)
 
 [Script]
-# 捕获 Token 逻辑 (此部分通常引用外部 sjtoken.js，若您需要内置逻辑可告知)
-http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, tag=声荐Token获取, enable={{{capture}}}
+# 1. 获取 Token 脚本 (即您图中显示的那个)
+http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, tag=声荐 Token 获取, enable={{{capture}}}
 
-# 自动任务 (执行下方代码逻辑)
-cron "{{{cron}}}" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, tag=声荐自动任务, argument=notify={{{notify_mode}}}
+# 2. 定时签到脚本 (修复后增加此行，将显示在脚本列表中)
+cron "{{{cron}}}" script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, tag=声荐自动任务执行, argument=notify={{{notify_mode}}}
 
 [MITM]
 hostname = xcx.myinyun.com
