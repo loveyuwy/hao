@@ -16,7 +16,7 @@ cron = input, "0 10,16,22 * * *", tag = 执行时间, desc = CRON表达式, 默�
 [Script]
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable = {enable_token_capture}
 
-cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐每日任务, argument="[{notify}]"
+cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐每日任务, argument=[{notify}]
 
 [MITM]
 hostname = xcx.myinyun.com
