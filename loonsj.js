@@ -1,98 +1,116 @@
-/*
-声荐自动签到 - 最终适配版
-*/
+/**
+ * 声荐自动签到 & 领小红花 (Loon 适配版)
+ */
 
-const $ = new Env("声荐自动签到");
+const $ = new Env("声荐组合任务");
 const tokenKey = "shengjian_auth_token";
+const statsKey = "shengjian_daily_stats";
 
-// --- 适配酷我：参数解析逻辑 ---
+// --- 参数解析 (适配 Loon $argument) ---
 const ARGS = (() => {
-    let args = { silent: "0" };
-    let input = (typeof $argument !== "undefined" && $argument) ? String($argument).toLowerCase() : "";
-
-    // 逻辑：寻找 silent_switch= 后的布尔值
-    if (input.includes("silent_switch=")) {
-        let val = input.split("silent_switch=")[1].split("&")[0].split(",")[0].trim();
-        args.silent = (val === "true" || val === "1") ? "1" : "0";
+  let args = { notify: "0" };
+  if (typeof $argument !== "undefined" && $argument) {
+    if ($argument.includes("=")) {
+      let pairs = $argument.split("&");
+      for (let pair of pairs) {
+        let [k, v] = pair.split("=");
+        if (k) args[k] = v;
+      }
     } else {
-        // 兜底：如果 Loon 还是只传了变量名
-        args.silent = (input === "true" || input === "1" || input === "silent_switch") ? "1" : "0";
+      args.notify = $argument; // 处理直接传值情况
     }
-    return args;
+  }
+  return args;
 })();
-
-const isSilentMode = ARGS.silent === "1";
-const SUMMARY_HOUR = 23; 
-
-// 判断当前小时是否 >= 23
-const isTimeToShowSummary = new Date().getHours() >= SUMMARY_HOUR;
 
 const rawToken = $.read(tokenKey);
 const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
 
-(async () => {
-    if (!token) {
-        $.notify("❌ 声荐失败", "", "未找到 Token，请重新抓包");
-        return $.done();
-    }
+const commonHeaders = {
+  "Authorization": token,
+  "Content-Type": "application/json",
+  "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.64 NetType/4G Language/zh_CN",
+  "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
+};
 
-    console.log(`[DEBUG] 原始参数: "${$argument}"`);
-    console.log(`[DEBUG] 判定模式: ${isSilentMode ? "静默汇总模式 (23点总结)" : "实时通知模式"}`);
+// ----------------- 逻辑处理 -----------------
+function getDailyStats() {
+  const today = new Date().toISOString().slice(0, 10);
+  let stats = {};
+  try { stats = JSON.parse($.read(statsKey) || "{}"); } catch (e) { stats = {}; }
+  if (stats.date !== today) {
+    stats = { date: today, logs: [] };
+  }
+  return stats;
+}
 
-    // 执行任务
-    const signRes = await signIn();
-    const flowerRes = await claimFlower();
+async function startTask() {
+  console.log("--- 声荐任务开始 ---");
+  const now = new Date();
+  const hour = now.getHours();
 
-    // --- 通知决策核心 ---
-    if (!isSilentMode) {
-        // 【模式 1】：关闭静默 -> 每次运行实时弹窗
-        $.notify("声荐签到结果", "", signRes);
-        $.notify("声荐领花结果", "", flowerRes);
-        console.log("[INFO] 已执行实时通知");
-    } else {
-        // 【模式 2】：开启静默
-        if (isTimeToShowSummary) {
-            // 到了 23 点 -> 发送汇总通知
-            const summary = `📊 声荐汇总报告 (今日结束)\n──────────────\n📋 签到: ${signRes}\n🌸 领花: ${flowerRes}\n──────────────\n⏰ 运行时间: ${new Date().toLocaleString('zh-CN', {hour12: false})}`;
-            $.notify("声荐运行总结", "", summary);
-            console.log("[INFO] 已执行 23 点汇总通知");
-        } else {
-            // 没到 23 点 -> 仅记录日志
-            console.log(`[INFO] 静默中，23点前拦截弹窗。记录: ${signRes} | ${flowerRes}`);
-        }
-    }
+  if (!token) {
+    $.notify("❌ 声荐任务失败", "未找到令牌", "请先打开小程序获取token");
+    return $.done();
+  }
 
-})().catch((e) => {
-    console.log(`[异常] ${e}`);
-}).finally(() => $.done());
+  const [signResult, flowerResult] = await Promise.all([signIn(), claimFlower()]);
+  
+  let stats = getDailyStats();
+  const currentLog = `[${hour}点] ${signResult.message} | ${flowerResult.message}`;
+  stats.logs.push(currentLog);
+  $.write(JSON.stringify(stats), statsKey);
 
-// --- 接口函数 ---
+  if (signResult.status === 'token_error') {
+    $.notify("🛑 声荐认证失败", "Token 已过期", "请重新获取令牌");
+    return $.done();
+  }
+
+  // 通知判定
+  if (ARGS.notify === "1") {
+    $.notify("声荐签到任务", "", `${signResult.message}\n${flowerResult.message}`);
+  } else if (hour === 22) {
+    $.notify("📊 声荐每日汇总", `今日执行 ${stats.logs.length} 次`, stats.logs.join("\n"));
+  }
+
+  console.log("--- 任务结束 ---");
+  $.done();
+}
+
+// 签到请求
 function signIn() {
-    return new Promise((resolve) => {
-        $.put({
-            url: "https://xcx.myinyun.com:4438/napi/gift",
-            headers: { "Authorization": token, "Content-Type": "application/json" },
-            body: "{}"
-        }, (err, res, data) => {
-            try {
-                const j = JSON.parse(data);
-                resolve(j.msg === "ok" ? `成功(${j.data?.prizeName || ""})` : `📋 ${j.msg || "已签到"}`);
-            } catch (e) { resolve("📋 已签到"); }
-        });
+  return new Promise((resolve) => {
+    $.put({ url: "https://xcx.myinyun.com:4438/napi/gift", headers: commonHeaders, body: "{}" }, (err, res, data) => {
+      if (err) return resolve({ status: 'error', message: '📡 网络错误' });
+      if (res.status === 401) return resolve({ status: 'token_error', message: 'Token过期' });
+      try {
+        const resObj = JSON.parse(data);
+        if (resObj.msg === "ok") resolve({ status: 'success', message: `✅ 签到: ${resObj.data?.prizeName || "成功"}` });
+        else resolve({ status: 'info', message: `📋 ${resObj.msg}` });
+      } catch { resolve({ status: 'error', message: '解析失败' }); }
     });
+  });
 }
 
+// 领花请求
 function claimFlower() {
-    return new Promise((resolve) => {
-        $.post({
-            url: "https://xcx.myinyun.com:4438/napi/flower/get",
-            headers: { "Authorization": token, "Content-Type": "application/json" },
-            body: "{}"
-        }, (err, res, data) => {
-            resolve(data === "true" ? "🌺 领花成功" : "🌸 已领/未到时间");
-        });
+  return new Promise((resolve) => {
+    $.post({ url: "https://xcx.myinyun.com:4438/napi/flower/get", headers: commonHeaders, body: "{}" }, (err, res, data) => {
+      if (err || data === "false") resolve({ status: 'info', message: '🌸 领花: 已领或未到时' });
+      else if (data === "true") resolve({ status: 'success', message: '🌺 领花: 成功' });
+      else resolve({ status: 'info', message: '🌸 领花: 跳过' });
     });
+  });
 }
 
-// --- 环境适配器 ---
-function Env(n){this.name=n;this.notify=(t,s,b)=>{if(typeof $notification!="undefined")$notification.post(t,s,b);else if(typeof $notify!="undefined")$notify(t,s,b);else console.log(`${t}\n${s}\n${b}`)};this.read=k=>{if(typeof $persistentStore!="undefined")return $persistentStore.read(k);if(typeof $prefs!="undefined")return $prefs.valueForKey(k)};this.put=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.put(r,c)};this.post=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.post(r,c)};this.done=v=>{if(typeof $done!="undefined")$done(v)}}
+// ----------------- Loon 环境兼容 -----------------
+function Env(name) {
+  this.read = (k) => $persistentStore.read(k);
+  this.write = (v, k) => $persistentStore.write(v, k);
+  this.notify = (t, s, b) => $notification.post(t, s, b);
+  this.put = (options, cb) => $httpClient.put(options, cb);
+  this.post = (options, cb) => $httpClient.post(options, cb);
+  this.done = (v = {}) => $done(v);
+}
+
+startTask();
