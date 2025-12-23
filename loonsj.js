@@ -1,122 +1,138 @@
-/*************************
- * 声荐每日签到 + 小红花
- * 支持 notify 静默汇总
- * 22 点汇总
- *************************/
-
 const $ = new Env("声荐每日任务");
-const TOKEN_KEY = "shengjian_auth_token";
-const STATS_KEY = "shengjian_daily_stats";
 
-/******** 参数解析 ********/
-const ARGS = (() => {
-  let notify = "true";
-  if (typeof $argument !== "undefined") {
-    notify = String($argument);
-  }
-  return {
-    notify: notify === "true" || notify === "1"
-  };
+// ================= 参数解析 =================
+const notifySwitch = (() => {
+  if (typeof $argument === "undefined") return true;
+  if ($argument === true || $argument === "true" || $argument === "1") return true;
+  return false;
 })();
 
-/******** 时间判断 ********/
-const now = new Date();
-const hour = now.getHours();
-const isSummaryTime = hour === 22;
+// ================= 常量 =================
+const TOKEN_KEY = "shengjian_auth_token";
+const STAT_KEY = "shengjian_daily_stat";
+const LAST_RUN_HOUR = 22;
 
-/******** 统计 ********/
-function getStats() {
-  const today = now.toISOString().slice(0, 10);
-  let stats = {};
-  try { stats = JSON.parse($.read(STATS_KEY) || "{}"); } catch {}
-  if (stats.date !== today) {
-    stats = { date: today, sign: "", flower: "" };
-  }
-  return stats;
-}
-function saveStats(s) {
-  $.write(JSON.stringify(s), STATS_KEY);
-}
-
-/******** Token ********/
+// ================= Token =================
 const rawToken = $.read(TOKEN_KEY);
 const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
 
+// ================= Headers =================
 const headers = {
-  "Authorization": token,
+  Authorization: token,
   "Content-Type": "application/json",
-  "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X)",
-  "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
+  "User-Agent":
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.64",
+  Referer:
+    "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html",
 };
 
-/******** 请求 ********/
-const request = (method, url) => new Promise(resolve => {
-  const req = { url, headers, body: "{}" };
-  const cb = (e, r, d) => {
-    if (e) return resolve({ err: true });
-    resolve({ code: r.status || r.statusCode, data: d });
-  };
-  method === "POST" ? $.post(req, cb) : $.put(req, cb);
-});
+// ================= 时间判断 =================
+const now = new Date();
+const isLastRun = now.getHours() === LAST_RUN_HOUR;
 
-/******** 主流程 ********/
+// ================= 统计 =================
+function loadStat() {
+  const today = now.toISOString().slice(0, 10);
+  let stat = {};
+  try {
+    stat = JSON.parse($.read(STAT_KEY) || "{}");
+  } catch {}
+  if (stat.date !== today) {
+    stat = { date: today, sign: 0, flower: 0, error: 0 };
+  }
+  return stat;
+}
+function saveStat(stat) {
+  $.write(JSON.stringify(stat), STAT_KEY);
+}
+
+// ================= 网络请求 =================
+function request(method, url) {
+  return new Promise((resolve) => {
+    const req = { url, headers, body: "{}" };
+    const fn = method === "POST" ? $.post : $.put;
+    fn(req, (err, res, data) => {
+      if (err) return resolve({ error: "网络错误" });
+      const code = res?.status || res?.statusCode;
+      if (code === 401) return resolve({ tokenError: true });
+      try {
+        resolve(JSON.parse(data));
+      } catch {
+        resolve({ error: "解析失败" });
+      }
+    });
+  });
+}
+
+// ================= 主逻辑 =================
 (async () => {
   if (!token) {
-    $.notify("❌ 声荐失败", "未检测到 Token", "请重新打开声荐小程序获取");
+    $.notify("❌ 声荐失败", "未检测到 Token", "请先打开声荐小程序获取 Token");
     return $.done();
   }
 
-  let stats = getStats();
+  const stat = loadStat();
+  let msgs = [];
 
-  /** 签到 **/
+  // ---- 签到 ----
   const sign = await request("PUT", "https://xcx.myinyun.com:4438/napi/gift");
-  if (sign.code === 401) {
+  if (sign.tokenError) {
     $.notify("🛑 声荐 Token 失效", "", "请重新打开声荐小程序");
+    stat.error++;
+    saveStat(stat);
     return $.done();
   }
-  try {
-    const j = JSON.parse(sign.data);
-    stats.sign = j.msg || "未知";
-  } catch {
-    stats.sign = "解析失败";
+  if (sign.msg === "ok") {
+    stat.sign++;
+    msgs.push(`✅ 签到成功`);
+  } else if (String(sign.msg).includes("已经")) {
+    msgs.push(`📋 今日已签到`);
   }
 
-  /** 小红花 **/
-  const flower = await request("POST", "https://xcx.myinyun.com:4438/napi/flower/get");
-  if (flower.code === 401) {
-    $.notify("🛑 声荐 Token 失效", "", "请重新打开声荐小程序");
-    return $.done();
-  }
-  if (flower.data === "true") stats.flower = "已领取";
-  else if (flower.data === "false") stats.flower = "已领过";
-  else {
-    try {
-      stats.flower = JSON.parse(flower.data).message || "未知";
-    } catch {
-      stats.flower = "未知";
-    }
+  // ---- 小红花 ----
+  const flower = await request(
+    "POST",
+    "https://xcx.myinyun.com:4438/napi/flower/get"
+  );
+  if (flower === true || flower === "true") {
+    stat.flower++;
+    msgs.push(`🌺 小红花已领取`);
   }
 
-  saveStats(stats);
+  saveStat(stat);
 
-  /** 通知逻辑 **/
-  const msg = `📋 签到：${stats.sign}\n🌸 小红花：${stats.flower}`;
-
-  if (ARGS.notify) {
-    $.notify("✅ 声荐签到完成", "", msg);
-  } else if (isSummaryTime) {
-    $.notify("📊 声荐 22 点汇总", "", msg);
+  // ================= 通知策略 =================
+  if (notifySwitch) {
+    $.notify("声荐任务完成", "", msgs.join("\n"));
+  } else if (isLastRun) {
+    $.notify(
+      "📊 声荐 22 点汇总",
+      "",
+      `签到成功：${stat.sign}\n小红花：${stat.flower}\n异常：${stat.error}`
+    );
   }
 
   $.done();
 })();
 
-/******** Env ********/
+// ================= Env =================
 function Env(name) {
-  this.read = k => $persistentStore?.read(k) || $prefs?.valueForKey(k);
-  this.write = (v, k) => $persistentStore?.write(v, k) || $prefs?.setValueForKey(v, k);
-  this.notify = (t, s, b) => $notification?.post(t, s, b) || $notify?.(t, s, b);
-  this.post = (r, c) => $httpClient.post(r, c);
-  this.put = (r, c) => $httpClient.put(r, c);
-  this.done = () => $done();
+  this.name = name;
+  this.notify = (t, s, b) => {
+    if (typeof $notification !== "undefined") $notification.post(t, s, b);
+    else if (typeof $notify !== "undefined") $notify(t, s, b);
+  };
+  this.read = (k) =>
+    typeof $persistentStore !== "undefined"
+      ? $persistentStore.read(k)
+      : $prefs?.valueForKey(k);
+  this.write = (v, k) =>
+    typeof $persistentStore !== "undefined"
+      ? $persistentStore.write(v, k)
+      : $prefs?.setValueForKey(v, k);
+  this.put = (r, c) =>
+    $httpClient ? $httpClient.put(r, c) : $http.put(r, c);
+  this.post = (r, c) =>
+    $httpClient ? $httpClient.post(r, c) : $http.post(r, c);
+  this.done = (v = {}) => $done(v);
 }
