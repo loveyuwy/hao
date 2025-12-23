@@ -1,24 +1,20 @@
-#!name=声荐每日自动签到
-#!desc=微信小程序声荐每日签到。自动签到频率：7-22点每3小时运行。
-#!author=〈ザㄩメ火华
-#!category=每日提醒
-#!homepage=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js
-#!icon=https://raw.githubusercontent.com/Orz-3/mini/master/Color/shengjian.png
+#!name = 声荐每日自动签到
+#!desc = 微信小程序声荐每日签到。自动签到频率：7-22点每3小时运行。
+#!author = 〈ザㄩメ火华
+#!icon = https://raw.githubusercontent.com/Orz-3/mini/master/Color/shengjian.png
+#!input = CRON_SET, FETCH_TOKEN, NOTIFY_MODE
 
-[Argument]
-# CRON定时设置
-cron_exp = input, "0 7-22/3 * * *", tag=签到任务CRON
-# 自动抓取开关 (填写 # 即可禁用Token捕获)
-capture_toggle = input, "", tag=禁用Token捕获开关
-# 通知模式 (1=每次通知, 0=仅22点汇总)
-notify_mode = input, "0", tag=通知模式
+# --- 配置说明 ---
+# CRON_SET: 签到表达式，默认 "0 7-22/3 * * *"
+# FETCH_TOKEN: 填 # 禁用 Token 捕获
+# NOTIFY_MODE: 1=每次通知, 0=仅22点汇总
 
 [Script]
-# 抓取 Token 脚本
-http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login tag={{{capture_toggle}}}声荐自动抓取token, script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60
+# 自动抓取 Token
+http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, tag=声荐Token获取, enabled={{{FETCH_TOKEN}}}
 
-# 定时任务脚本
-cron "{{{cron_exp}}}" tag=声荐自动任务, script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, argument=notify={{{notify_mode}}}
+# 自动签到任务
+cron "{{{CRON_SET}}}" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, tag=声荐自动签到, argument=notify={{{NOTIFY_MODE}}}
 
 [MITM]
 hostname = xcx.myinyun.com
