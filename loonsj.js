@@ -1,97 +1,116 @@
-const $ = new Env("声荐每日签到");
+const $ = new Env("声荐每日任务");
+const tokenKey = "shengjian_auth_token";
+const STATS_KEY = "sj_daily_stats";
 
-// ========= 参数解析 =========
-const notifyMode = (() => {
-  if (typeof $argument === "undefined") return "1";
-  if ($argument === true || $argument === "true" || $argument === "1") return "1";
-  return "0";
+/* ========== 参数解析 ========== */
+const NOTIFY = (() => {
+  if (typeof $argument === "undefined") return true;
+  return ($argument === true || $argument === "true" || $argument === "1");
 })();
 
-const tokenKey = "shengjian_auth_token";
-const STAT_KEY = "shengjian_daily_stat";
+/* ========== 时间判断（22点汇总） ========== */
 const now = new Date();
-const hour = now.getHours();
-const isSummaryTime = hour === 22;
+const isSummaryTime = now.getHours() === 22;
 
-// ========= Token =========
+/* ========== 读取 Token ========== */
 const rawToken = $.read(tokenKey);
-const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
+const token = rawToken
+  ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`)
+  : null;
 
 const headers = {
-  Authorization: token,
+  "Authorization": token,
   "Content-Type": "application/json",
   "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X)",
-  Referer: "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
+  "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
 
-// ========= 统计 =========
-function loadStat() {
+/* ========== 统计数据 ========== */
+function loadStats() {
   const today = new Date().toISOString().slice(0, 10);
-  let stat = {};
-  try { stat = JSON.parse($.read(STAT_KEY) || "{}"); } catch {}
-  if (stat.date !== today) stat = { date: today, logs: [] };
-  return stat;
+  let s = {};
+  try { s = JSON.parse($.read(STATS_KEY) || "{}"); } catch {}
+  if (s.date !== today) s = { date: today, logs: [] };
+  return s;
 }
-function saveStat(stat) {
-  $.write(JSON.stringify(stat), STAT_KEY);
+function saveStats(s) {
+  $.write(JSON.stringify(s), STATS_KEY);
 }
 
-// ========= 请求 =========
-function request(method, url) {
+/* ========== 签到 ========== */
+function signIn() {
   return new Promise(resolve => {
-    const req = { url, headers, body: "{}" };
-    $[method](req, (e, r, d) => {
-      if (e) return resolve({ err: true });
-      if (r.statusCode === 401) return resolve({ tokenError: true });
-      try { resolve(JSON.parse(d)); } catch { resolve({ err: true }); }
+    $.put({
+      url: "https://xcx.myinyun.com:4438/napi/gift",
+      headers,
+      body: "{}"
+    }, (e, r, d) => {
+      if (e) return resolve({ type: "error", msg: "📡 网络错误" });
+      if (r.status === 401) return resolve({ type: "token" });
+      try {
+        const j = JSON.parse(d);
+        if (j.msg === "ok")
+          resolve({ type: "success", msg: `✅ 签到成功：${j.data?.prizeName || ""}` });
+        else if (String(j.msg).includes("已经"))
+          resolve({ type: "info", msg: "📋 今日已签到" });
+        else
+          resolve({ type: "error", msg: j.msg });
+      } catch {
+        resolve({ type: "error", msg: "解析失败" });
+      }
     });
   });
 }
 
-// ========= 主流程 =========
+/* ========== 小红花 ========== */
+function flower() {
+  return new Promise(resolve => {
+    $.post({
+      url: "https://xcx.myinyun.com:4438/napi/flower/get",
+      headers,
+      body: "{}"
+    }, (e, r, d) => {
+      if (r?.status === 401) return resolve({ type: "token" });
+      if (d === "true") resolve({ type: "success", msg: "🌺 小红花已领取" });
+      else resolve({ type: "info", msg: "🌸 小红花已领取/未到时间" });
+    });
+  });
+}
+
+/* ========== 主流程 ========== */
 (async () => {
   if (!token) {
-    $.notify("❌ 声荐签到失败", "", "未检测到 Token，请先打开声荐小程序");
+    $.notify("❌ 声荐失败", "未检测到 Token", "请打开声荐小程序获取 Token");
     return $.done();
   }
 
-  const stat = loadStat();
-  let messages = [];
+  const stats = loadStats();
+  const res1 = await signIn();
+  const res2 = await flower();
 
-  // 签到
-  const sign = await request("put", "https://xcx.myinyun.com/napi/gift");
-  if (sign.tokenError) {
+  if (res1.type === "token" || res2.type === "token") {
     $.notify("🛑 声荐 Token 失效", "", "请重新打开声荐小程序");
     return $.done();
   }
-  if (sign.msg === "ok") messages.push(`✅ 签到成功：${sign.data?.prizeName || ""}`);
-  else messages.push(`ℹ️ 签到：${sign.msg || "未知状态"}`);
 
-  // 小红花
-  const flower = await request("post", "https://xcx.myinyun.com/napi/flower/get");
-  if (flower === true) messages.push("🌺 已领取小红花");
-  else messages.push("⏰ 小红花：未到时间或已领取");
+  [res1, res2].forEach(r => r.msg && stats.logs.push(r.msg));
+  saveStats(stats);
 
-  const resultText = messages.join("\n");
-  stat.logs.push(resultText);
-  saveStat(stat);
-
-  // ========= 通知策略 =========
-  if (notifyMode === "1") {
-    $.notify("✅ 声荐签到完成", "", resultText);
+  if (NOTIFY) {
+    $.notify("✅ 声荐签到完成", "", stats.logs.slice(-2).join("\n"));
   } else if (isSummaryTime) {
-    $.notify("📊 声荐今日汇总", "", stat.logs.join("\n\n"));
+    $.notify("📊 声荐 22 点汇总", "", stats.logs.join("\n"));
   }
 
   $.done();
 })();
 
-// ========= Env =========
-function Env(name) {
-  this.read = k => $persistentStore?.read(k) ?? $prefs?.valueForKey(k);
-  this.write = (v, k) => $persistentStore?.write(v, k) ?? $prefs?.setValueForKey(v, k);
-  this.notify = (t, s, b) => $notification?.post(t, s, b);
+/* ========== Env ========== */
+function Env(n) {
+  this.read = k => $persistentStore?.read(k);
+  this.write = (v, k) => $persistentStore?.write(v, k);
+  this.notify = (t, s, b) => $notification.post(t, s, b);
   this.put = (r, c) => $httpClient.put(r, c);
   this.post = (r, c) => $httpClient.post(r, c);
-  this.done = v => $done(v);
+  this.done = () => $done();
 }
