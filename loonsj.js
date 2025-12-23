@@ -3,7 +3,7 @@ const tokenKey = "shengjian_auth_token";
 const STATS_KEY = "shengjian_daily_stats";
 let isScriptFinished = false;
 
-// --- 参数解析优化 ---
+// --- 参数解析优化 (修复版 V2) ---
 const ARGS = (() => {
     let args = { notify: "true" }; // 默认值
     let input = null;
@@ -25,9 +25,12 @@ const ARGS = (() => {
     return args;
 })();
 
-// 强制转为字符串比较，防止类型差异
-const isNotifyEnabled = String(ARGS.notify).trim() === "true";
+// 容错处理：如果 Loon 没替换变量传来了 "{notify}"，或者值为 "true"，都算开启
+// 这样即使配置出错，默认也会通知，不会静默失败
+let notifyVal = String(ARGS.notify).trim();
+const isNotifyEnabled = (notifyVal === "true" || notifyVal.includes("{notify}"));
 const SUMMARY_HOUR = 22; // 汇总通知时间
+
 
 const rawToken = $.read(tokenKey);
 const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
