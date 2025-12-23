@@ -2,20 +2,23 @@
 #!desc=微信小程序声荐每日签到。自动签到频率：7-22点每3小时运行。
 #!author=〈ザㄩメ火华
 #!category=每日提醒
-#!homepage=https://github.com/loveyuwy/huohua
+#!homepage=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js
 #!icon=https://raw.githubusercontent.com/Orz-3/mini/master/Color/shengjian.png
 
 [Argument]
-cron = input, "0 7-22/3 * * *", tag=CRON定时设置, desc=签到脚本的 CRON 表达式
-capture = switch, true, tag=自动抓取开关, desc=是否开启Token捕获
-notify_mode = select, "0", "1", tag=通知模式, desc=1=每次通知, 0=仅22点汇总(默认0)
+# CRON定时设置
+cron_exp = input, "0 7-22/3 * * *", tag=签到任务CRON
+# 自动抓取开关 (填写 # 即可禁用Token捕获)
+capture_toggle = input, "", tag=禁用Token捕获开关
+# 通知模式 (1=每次通知, 0=仅22点汇总)
+notify_mode = input, "0", tag=通知模式
 
 [Script]
-# 1. 获取 Token 脚本 (即您图中显示的那个)
-http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, tag=声荐 Token 获取, enable={{{capture}}}
+# 抓取 Token 脚本
+http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login tag={{{capture_toggle}}}声荐自动抓取token, script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60
 
-# 2. 定时签到脚本 (修复后增加此行，将显示在脚本列表中)
-cron "{{{cron}}}" script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, tag=声荐自动任务执行, argument=notify={{{notify_mode}}}
+# 定时任务脚本
+cron "{{{cron_exp}}}" tag=声荐自动任务, script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, argument=notify={{{notify_mode}}}
 
 [MITM]
 hostname = xcx.myinyun.com
