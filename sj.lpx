@@ -1,6 +1,6 @@
 #!name=声荐每日自动签到
 #!desc=微信小程序声荐每日签到加领取小红花。
-#!author=〈ザㄩメ火华 & modified by Gemini
+#!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 #!date=2025-12-23
 
@@ -18,8 +18,8 @@ cron = input, "0 10-22/6 * * *", tag = 执行时间, desc = CRON表达式, 默�
 # 自动抓取Token (保持原样)
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable = {enable_token_capture}
 
-# 每日任务 (修改了argument传递方式以支持notify参数)
-cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐每日任务, argument=notify={notify}
+# 每日任务 (注意：argument=notify={notify} 这里不要加双引号)
+cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjqd.js, timeout=60, tag=声荐每日任务, argument=notify={notify}
 
 [MITM]
 hostname = xcx.myinyun.com
