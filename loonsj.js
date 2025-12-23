@@ -1,19 +1,25 @@
 /*
-声荐每日自动任务 - Loon 适配版
+声荐组合任务 - Loon 适配版
 */
 
 const $ = new Env("声荐组合任务");
 const tokenKey = "shengjian_auth_token";
-const statsKey = "shengjian_daily_stats";
+const statsKey = "shengjian_daily_stats"; 
 
-// --- 参数解析 ---
+// --- 参数解析 (兼容 Loon $argument) ---
 const ARGS = (() => {
-  let args = { notify: "0" }; // 默认0：22点汇总
+  let args = { notify: "0" };
   if (typeof $argument !== "undefined" && $argument) {
-    let pairs = $argument.split("&");
-    for (let pair of pairs) {
-      let [k, v] = pair.split("=");
-      if (k) args[k] = v;
+    // Loon 的 argument 可能是字符串 "notify=1"
+    if ($argument.indexOf("=") !== -1) {
+      let pairs = $argument.split("&");
+      for (let pair of pairs) {
+        let [k, v] = pair.split("=");
+        if (k) args[k] = v;
+      }
+    } else {
+      // 如果直接传入的是 "notify:1" 这种简易格式
+      args.notify = $argument.replace("notify=", "");
     }
   }
   return args;
@@ -29,9 +35,9 @@ const commonHeaders = {
   "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
 
-// ----------------- 汇总逻辑 -----------------
+// ----------------- 汇总逻辑处理 -----------------
 function getDailyStats() {
-  const today = new Date().toLocaleDateString();
+  const today = new Date().toISOString().slice(0, 10);
   let stats = {};
   try { stats = JSON.parse($.read(statsKey) || "{}"); } catch (e) { stats = {}; }
   if (stats.date !== today) {
@@ -44,7 +50,7 @@ function saveDailyStats(stats) {
   $.write(JSON.stringify(stats), statsKey);
 }
 
-// ----------------- 任务函数 -----------------
+// ----------------- Step 1: 签到 -----------------
 function signIn() {
   return new Promise((resolve) => {
     const req = { url: "https://xcx.myinyun.com:4438/napi/gift", headers: commonHeaders, body: "{}" };
@@ -58,7 +64,7 @@ function signIn() {
           const prize = result.data?.prizeName || "成功";
           resolve({ status: 'success', message: `✅ 签到: ${prize}` });
         } else if (String(result.msg || "").includes("已经")) {
-          resolve({ status: 'info', message: '📋 签到: 今日已签' });
+          resolve({ status: 'info', message: '📋 签到: 今天已完成' });
         } else {
           resolve({ status: 'error', message: `🚫 签到: ${result.msg || "未知错误"}` });
         }
@@ -67,19 +73,21 @@ function signIn() {
   });
 }
 
+// ----------------- Step 2: 领取小红花 -----------------
 function claimFlower() {
   return new Promise((resolve) => {
     const req = { url: "https://xcx.myinyun.com:4438/napi/flower/get", headers: commonHeaders, body: "{}" };
     $.post(req, (err, res, data) => {
-      if (err) return resolve({ status: 'info', message: '⏰ 领花: 失败' });
+      if (err) return resolve({ status: 'info', message: '⏰ 领花: 超时或未到时间' });
       if (data === "true") return resolve({ status: 'success', message: '🌺 已领小红花' });
       try {
         const obj = JSON.parse(data);
-        if (obj.statusCode === 401) resolve({ status: 'token_error', message: 'Token 过期' });
-        else if (obj.statusCode === 400) resolve({ status: 'info', message: '⏰ 领花: 未到时间' });
-        else resolve({ status: 'info', message: `🌸 领花: ${obj.message || '未知'}` });
+        if (obj.statusCode === 401) resolve({ status: 'token_error', message: 'Token 已过期' });
+        else if (obj.statusCode === 400 && /未到领取时间/.test(obj.message || "")) resolve({ status: 'info', message: '⏰ 领花: 未到时间' });
+        else resolve({ status: 'info', message: `🌸 领花: ${obj.message || '未知响应'}` });
       } catch {
-        resolve({ status: 'info', message: data === 'false' ? '👍 领花: 已领过' : '🤔 领花: 异常' });
+        if (data === 'false') resolve({ status: 'info', message: '👍 领花: 已领过' });
+        else resolve({ status: 'info', message: '🤔 领花: 未知响应' });
       }
     });
   });
@@ -87,44 +95,61 @@ function claimFlower() {
 
 // ----------------- 主逻辑 -----------------
 (async () => {
-  console.log(`--- ${$.name} 开始 ---`);
+  console.log(`--- 声荐任务开始 (通知模式: ${ARGS.notify}) ---`);
   const now = new Date();
   const hour = now.getHours();
+  const isLastRun = (hour >= 21); // 考虑到CRON 22点运行，21-23点段均视为最后汇总
 
   if (!token) {
-    $.notify("❌ 声荐任务失败", "未找到令牌", "请进入小程序重新捕获");
+    $.notify("❌ 声荐任务失败", "未找到令牌", "请先在微信打开小程序获取token");
     return $.done();
   }
 
-  const [signRes, flowerRes] = await Promise.all([signIn(), claimFlower()]);
+  const [signResult, flowerResult] = await Promise.all([signIn(), claimFlower()]);
   
   let stats = getDailyStats();
-  const currentLog = `[${hour}点] ${signRes.message} | ${flowerRes.message}`;
+  const currentLog = `[${hour}点] ${signResult.message} | ${flowerResult.message}`;
   stats.logs.push(currentLog);
   saveDailyStats(stats);
 
-  if (signRes.status === 'token_error' || flowerRes.status === 'token_error') {
-    $.notify("🛑 声荐认证失败", "Token 已过期", "请重新获取");
+  if (signResult.status === 'token_error' || flowerResult.status === 'token_error') {
+    $.notify("🛑 声荐认证失败", "Token 已过期", "请重新获取令牌");
     return $.done();
   }
 
   if (ARGS.notify === "1") {
-    $.notify("声荐任务", "", `${signRes.message}\n${flowerRes.message}`);
-  } else if (hour === 22) {
-    $.notify("📊 声荐每日汇总", `今日执行 ${stats.logs.length} 次`, stats.logs.join("\n"));
+    $.notify("声荐签到任务", "", `${signResult.message}\n${flowerResult.message}`);
+  } else if (isLastRun) {
+    const body = stats.logs.join("\n");
+    $.notify("📊 声荐每日汇总", `今日执行 ${stats.logs.length} 次`, body);
+  } else {
+    console.log(`静默运行: ${currentLog}`);
   }
 
-  console.log(`--- ${$.name} 结束 ---`);
   $.done();
-})().catch((e) => { $.notify("错误", "", e.message); $.done(); });
+})().catch((e) => {
+  console.log(e);
+  $.done();
+});
 
-// ----------------- Loon 兼容环境 -----------------
+// ----------------- Env 兼容层 -----------------
 function Env(name) {
   this.name = name;
-  this.read = (k) => $persistentStore.read(k);
-  this.write = (v, k) => $persistentStore.write(v, k);
-  this.notify = (t, s, b) => $notification.post(t, s, b);
-  this.put = (r, c) => $httpClient.put(r, c);
-  this.post = (r, c) => $httpClient.post(r, c);
+  this.read = (k) => {
+    return $persistentStore.read(k);
+  };
+  this.write = (v, k) => {
+    return $persistentStore.write(v, k);
+  };
+  this.notify = (t, s, b) => {
+    $notification.post(t, s, b);
+    console.log(`[通知] ${t}: ${s}\n${b}`);
+  };
+  this.put = (r, c) => {
+    $httpClient.put(r, (err, res, data) => c(err, res, data));
+  };
+  this.post = (r, c) => {
+    $httpClient.post(r, (err, res, data) => c(err, res, data));
+  };
   this.done = (v = {}) => $done(v);
 }
