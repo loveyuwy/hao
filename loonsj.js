@@ -1,34 +1,29 @@
 /*
-* 声荐组合任务 - 酷我逻辑复刻版
-* * [Argument] 
-* notify = switch, "true", "false", ...
-* * [Script]
-* argument="[{notify}]"
-* */
+* 声荐组合任务 - 稳定版
+* * 配置: argument={notify}
+* * 逻辑: 接收 "true" 或 "false" 字符串
+*/
 
 const $ = new Env("声荐组合任务");
 const tokenKey = "shengjian_auth_token";
 
-// --- 1. 参数解析 (完全复刻酷我音乐逻辑) ---
+// --- 1. 参数解析 ---
 const ARGS = (() => {
-    // 默认值
-    let args = { notify: "true" };
+    let args = { notify: "true" }; // 默认开启
     let input = null;
 
-    // 获取 argument
     if (typeof $argument !== "undefined") {
         input = $argument;
     }
 
-    // 打印原始参数，方便调试 (排查问题的关键)
-    console.log(`🔍 [Debug] 原始Input: ${input}`);
+    // 调试日志：打印接收到的原始内容
+    console.log(`🔍 [Debug] Loon传入参数: ${input} (类型: ${typeof input})`);
 
     if (input) {
-        // 移除方括号 [] 和 双引号 " (酷我逻辑)
-        // 例子: "[false]" -> "false"
-        let str = String(input).trim().replace(/[\[\]"]/g, "");
+        // 转换成字符串并去空格
+        const str = String(input).trim().toLowerCase();
         
-        // 赋值
+        // 只要是 "false" 或 "0"，就关闭通知
         if (str === "false" || str === "0") {
             args.notify = "false";
         } else {
@@ -39,15 +34,14 @@ const ARGS = (() => {
     return args;
 })();
 
-// --- 2. 业务配置 ---
+// --- 2. 业务常量 ---
 const CONSTANTS = {
     SUMMARY_HOUR: 22 // 汇总通知触发的小时 (22点)
 };
 
-console.log(`🔔 通知开关状态: ${ARGS.notify}`);
-console.log(`🔔 当前模式: ${ARGS.notify === "true" ? "✅ 每次都通知" : "🔕 静默 (仅22点汇总)"}`);
+console.log(`🔔 通知开关: ${ARGS.notify === "true" ? "✅ 开启 (每次通知)" : "🔕 关闭 (仅22点汇总)"}`);
 
-// 判断是否为汇总时间点 (22:00 - 22:59)
+// 判断是否为汇总时间点
 const isSummaryTime = (() => {
     const now = new Date();
     const hour = now.getHours();
@@ -55,8 +49,6 @@ const isSummaryTime = (() => {
 })();
 
 let isScriptFinished = false;
-
-// 读取 Token
 const rawToken = $.read(tokenKey);
 const token = rawToken ? (rawToken.startsWith("Bearer ") ? rawToken : `Bearer ${rawToken}`) : null;
 
@@ -135,20 +127,19 @@ function claimFlower() {
 
   const [signResult, flowerResult] = await Promise.all([signIn(), claimFlower()]);
   
-  // 强制Token过期通知
+  // 异常情况强制通知 (Token过期)
   if (signResult.status === 'token_error' || flowerResult.status === 'token_error') {
     $.notify("🛑 声荐认证失败", "Token 已过期", "请重新获取令牌后再执行。");
     isScriptFinished = true;
     return $.done();
   }
 
-  // 构建消息体
+  // 构建消息
   const lines = [];
   if (signResult.message) lines.push(signResult.message);
   if (flowerResult.message) lines.push(flowerResult.message);
   const body = lines.join("\n");
 
-  // 判定标题
   const hasError = [signResult, flowerResult].some(r => r.status === 'error');
   const hasSuccess = [signResult, flowerResult].some(r => r.status === 'success');
   
@@ -157,21 +148,19 @@ function claimFlower() {
   else if (hasSuccess) title = "✅ 声荐任务完成";
   else title = "⚠️ 声荐任务提醒";
 
-  // --- 核心通知逻辑 ---
+  // --- 智能通知核心逻辑 ---
   if (ARGS.notify === "true") {
-      // 模式1: 开启通知 -> 每次都发
+      // 1. 开关开启：无条件通知
       $.notify(title, "", body);
-      console.log(`🔔 [通知已发送] 原因: 每次通知模式开启`);
+      console.log("🔔 [模式:每次通知] 已发送弹窗");
   } else {
-      // 模式2: 关闭通知 -> 判断时间
+      // 2. 开关关闭：仅在汇总时间通知
       if (isSummaryTime) {
-          // 是22点 -> 发送汇总
           $.notify("📊 声荐每日汇总", "今日最终状态", body);
-          console.log(`🔔 [通知已发送] 原因: 22点汇总时间`);
+          console.log("🔔 [模式:每日汇总] 当前是22点，已发送汇总弹窗");
       } else {
-          // 不是22点 -> 静默
-          console.log(`🔕 [通知已跳过] 原因: 静默模式且非22点 (当前${new Date().getHours()}点)`);
-          console.log(`📝 本次运行结果:\n${body}`);
+          console.log(`🔕 [模式:静默运行] 当前${new Date().getHours()}点非汇总时间，跳过通知`);
+          console.log(`📄 本次运行结果:\n${body}`);
       }
   }
 
