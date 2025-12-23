@@ -8,7 +8,7 @@
 # 1. 抓取Token开关
 enable_token_capture = switch, true, true, tag = 抓取Token开关, desc = 默认开启。抓取Token成功后, 可关闭此开关
 
-# 2. 通知模式开关 (Loon标准写法)
+# 2. 通知模式开关
 # 开启 = 每次都通知; 关闭 = 仅22点汇总
 notify = switch, true, false, tag = 每次通知, desc = 开启则每次运行都通知；关闭则仅在22点发送当日汇总。
 
@@ -16,12 +16,12 @@ notify = switch, true, false, tag = 每次通知, desc = 开启则每次运行�
 cron = input, "0 10-22/6 * * *", tag = 执行时间, desc = 默认10,16,22点运行 (0 10-22/6 * * *)
 
 [Script]
-# 抓取 Token
-http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable = {enable_token_capture}
+# 抓取 Token (http-response)
+声荐自动抓取token = type=http-response, pattern=^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login, script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, enable={enable_token_capture}
 
-# 每日任务
-# 核心修正：使用 argument="{notify}"，这是Loon最标准的传参方式，不会导致脚本消失
-cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐每日任务, argument="{notify}"
+# 每日任务 (cron)
+# 核心修正：使用完整写法，且 argument 仅传递纯变量 {notify}
+声荐每日任务 = type=cron, cronexp={cron}, script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, argument={notify}
 
 [MITM]
 hostname = xcx.myinyun.com
