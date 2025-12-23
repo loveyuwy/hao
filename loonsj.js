@@ -3,15 +3,11 @@
 * * 参数说明:
 * - notify: 1 or true = 每次运行都通知 (默认)
 * 0 or false = 仅在 22:00 (最后一次运行) 发送汇总通知
-*
-* 运行逻辑:
-* - 脚本会自动记录每天的运行结果。
-* - 如果开启静默模式，只有在 22:00-22:59 期间运行时，才会把当天的所有记录汇总推送。
 */
 
 const $ = new Env("声荐组合任务");
 
-// --- 参数获取与配置 ---
+// --- 仿照酷我音乐的参数解析逻辑 (最稳健) ---
 const ARGS = (() => {
     let args = { notify: "1" };
     let input = null;
@@ -22,26 +18,38 @@ const ARGS = (() => {
         input = $environment.sourcePath.split(/[?#]/)[1];
     }
 
-    if (input) {
+    if (!input) return args;
+
+    if (typeof input === "object") {
+        // 如果是 Surge 对象格式
+        if (input.notify !== undefined) {
+            args.notify = (input.notify === true || input.notify === "true" || input.notify === "1" || input.notify === 1) ? "1" : "0";
+        }
+    } else {
+        // 如果是字符串格式 (Loon/QX)
         let str = String(input).trim().replace(/^\[|\]$/g, "").replace(/^"|"$/g, "");
         if (str.includes("=") || str.includes("&")) {
             str.split(/&|,/).forEach(item => {
                 let [k, v] = item.split("=");
                 if (k && v) args[k.trim()] = decodeURIComponent(v.trim());
             });
+            if (args.notify) {
+                args.notify = (args.notify === "true" || args.notify === "1" || args.notify === true) ? "1" : "0";
+            }
+        } else {
+            // 只有单个参数的情况
+            args.notify = (str === "true" || str === "1") ? "1" : "0";
         }
     }
-    // 规范化 notify 参数: "true" 或 "1" 为开启，其他为关闭
-    args.notify = (args.notify === "true" || args.notify === "1" || args.notify === true) ? "1" : "0";
     return args;
 })();
 
 const CONFIG = {
     LAST_RUN_HOUR: 22, // 汇总通知的小时 (22点)
-    NOTIFY: ARGS.notify
+    NOTIFY: ARGS.notify || "1"
 };
 
-console.log(`🔔 通知模式: ${CONFIG.NOTIFY === "1" ? "每次通知" : `静默运行 (仅${CONFIG.LAST_RUN_HOUR}点汇总)`}`);
+console.log(`🔔 通知模式: ${CONFIG.NOTIFY === "1" ? "开启 (每次运行通知)" : `关闭 (仅${CONFIG.LAST_RUN_HOUR}点汇总)`}`);
 
 // --- 持久化存储 Key ---
 const tokenKey = "shengjian_auth_token";
@@ -192,9 +200,8 @@ function claimFlower() {
   const body = currentLines.join("\n");
   console.log(`本次运行结果:\n${body}`);
 
-  // 6. 记录到今日统计 (去重，避免重复记录相同的状态)
+  // 6. 记录到今日统计 (去重)
   currentLines.forEach(line => {
-      // 简单去重：如果日志里还没有这句话，就加进去
       if (!dailyStats.logs.includes(line)) {
           dailyStats.logs.push(line);
       }
@@ -204,6 +211,7 @@ function claimFlower() {
   // 7. 通知逻辑
   if (CONFIG.NOTIFY === "1") {
       // 模式 1: 每次都通知
+      console.log("🔔 发送即时通知");
       $.notify(title, "", body);
   } else {
       // 模式 0: 静默，仅日志
@@ -234,7 +242,7 @@ function claimFlower() {
   $.done();
 });
 
-// ----------------- Env 兼容层 (保留原版) -----------------
+// ----------------- Env 兼容层 -----------------
 function Env(name) {
   this.name = name;
   this.log = (...a) => console.log(...a);
