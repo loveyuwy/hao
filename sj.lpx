@@ -10,18 +10,15 @@ enable_token_capture = switch, true, true, tag = 抓取Token开关, desc = 默�
 # CRON表达式, 默认10,16,22点运行
 cron = input, "0 10-22/6 * * *", tag = 执行时间, desc = 默认10,16,22点运行 (0 10-22/6 * * *)
 
-# 通知模式开关
+# 通知模式开关：开启=每次通知；关闭=仅22点汇总
 notify = switch, true, false, tag = 每次通知, desc = 开启则每次运行都通知；关闭则仅在22点发送当日汇总。
 
 [Script]
 # 抓取 Token 脚本
 http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable = {enable_token_capture}
 
-# 定时任务脚本 (注入 notify 参数)
+# 定时任务脚本 (注意：这里必须使用本地JS或确保远程JS已更新为下方的代码，建议直接将下方JS保存到本地引用)
 cron {cron} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐每日任务, argument=notify={notify}
 
 [MITM]
 hostname = xcx.myinyun.com
-
-# 下面是修改后的 JS，请复制并替换原脚本内容，或者如果您是引用远程脚本，可能需要覆盖本地脚本
-# ---------------------------------------------------
