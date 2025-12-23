@@ -2,14 +2,19 @@ const $ = new Env("声荐组合任务");
 const tokenKey = "shengjian_auth_token";
 const statsKey = "shengjian_daily_stats";
 
-// --- 参数解析 (优化：增加去空格和默认值处理) ---
+// --- 参数解析 (修复关键：识别 {notify} 原始占位符) ---
 const ARGS = (() => {
-  let args = { notify: "1" }; // 默认开启通知
+  let args = { notify: "1" };
   if (typeof $argument !== "undefined" && $argument) {
     let pairs = $argument.split("&");
     for (let pair of pairs) {
       let [k, v] = pair.split("=");
-      if (k) args[k.trim()] = v ? v.trim() : "";
+      if (k) {
+        let val = v ? v.trim() : "";
+        // 如果发现传进来的是未替换的占位符 {notify}，默认设为 "1"
+        if (val === "{notify}") val = "1";
+        args[k.trim()] = val;
+      }
     }
   }
   return args;
@@ -25,15 +30,10 @@ const commonHeaders = {
   "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
 
-// ----------------- 汇总逻辑处理 -----------------
 function getDailyStats() {
   const today = new Date().toISOString().slice(0, 10);
   let stats;
-  try { 
-    const stored = $.read(statsKey);
-    stats = stored ? JSON.parse(stored) : null; 
-  } catch (e) { stats = null; }
-
+  try { stats = JSON.parse($.read(statsKey) || "{}"); } catch (e) { stats = null; }
   if (!stats || stats.date !== today || !Array.isArray(stats.logs)) {
     stats = { date: today, logs: [] };
   }
@@ -44,7 +44,6 @@ function saveDailyStats(stats) {
   $.write(JSON.stringify(stats), statsKey);
 }
 
-// ----------------- Step 1: 签到 -----------------
 function signIn() {
   return new Promise((resolve) => {
     const req = { url: "https://xcx.myinyun.com:4438/napi/gift", headers: commonHeaders, body: "{}" };
@@ -55,10 +54,9 @@ function signIn() {
       try {
         const result = JSON.parse(data);
         if ((code == 200) && result.msg === "ok") {
-          const prize = result.data?.prizeName || "成功";
-          resolve({ status: 'success', message: `✅ 签到: ${prize}` });
+          resolve({ status: 'success', message: `✅ 签到: ${result.data?.prizeName || "成功"}` });
         } else if (String(result.msg || "").includes("已经")) {
-          resolve({ status: 'info', message: '📋 签到: 今天已签到' });
+          resolve({ status: 'info', message: '📋 签到: 今天已完成' });
         } else {
           resolve({ status: 'error', message: `🚫 签到: ${result.msg || "未知错误"}` });
         }
@@ -67,101 +65,64 @@ function signIn() {
   });
 }
 
-// ----------------- Step 2: 领取小红花 -----------------
 function claimFlower() {
   return new Promise((resolve) => {
     const req = { url: "https://xcx.myinyun.com:4438/napi/flower/get", headers: commonHeaders, body: "{}" };
     $.post(req, (err, res, data) => {
-      if (err) return resolve({ status: 'info', message: '⏰ 领花: 超时或未到时间' });
+      if (err) return resolve({ status: 'info', message: '⏰ 领花: 未到时间' });
       if (data === "true") return resolve({ status: 'success', message: '🌺 已领小红花' });
       try {
         const obj = JSON.parse(data);
         if (obj.statusCode == 401) resolve({ status: 'token_error', message: 'Token 已过期' });
-        else if (obj.statusCode == 400 && /未到领取时间/.test(obj.message || "")) resolve({ status: 'info', message: '⏰ 领花: 未到时间' });
-        else resolve({ status: 'info', message: `🌸 领花: ${obj.message || '未知响应'}` });
-      } catch {
-        if (data === 'false') resolve({ status: 'info', message: '👍 领花: 已领过' });
-        else resolve({ status: 'info', message: '🤔 领花: 未知响应' });
-      }
+        else resolve({ status: 'info', message: `🌸 领花: ${obj.message || '已领或跳过'}` });
+      } catch { resolve({ status: 'info', message: '👍 领花: 已处理' }); }
     });
   });
 }
 
-// ----------------- 主逻辑 -----------------
 (async () => {
   console.log("--- 声荐任务开始 ---");
-  const now = new Date();
-  const hour = now.getHours();
-  // 是否手动运行（手动运行时通常没有 $argument）
-  const isManual = (typeof $argument === "undefined" || !$argument);
-
+  const hour = new Date().getHours();
+  
   if (!token) {
-    $.notify("❌ 声荐任务失败", "未找到令牌", "请先运行小程序获取token");
+    $.notify("❌ 声荐失败", "未找到Token", "请打开小程序获取");
     return $.done();
   }
 
-  const [signResult, flowerResult] = await Promise.all([signIn(), claimFlower()]);
+  const [signRes, flowerRes] = await Promise.all([signIn(), claimFlower()]);
   
-  // 更新并保存每日统计
   let stats = getDailyStats();
-  const currentLog = `[${hour}点] ${signResult.message} | ${flowerResult.message}`;
-  stats.logs.push(currentLog);
+  stats.logs.push(`[${hour}点] ${signRes.message} | ${flowerRes.message}`);
   saveDailyStats(stats);
 
-  if (signResult.status === 'token_error' || flowerResult.status === 'token_error') {
-    $.notify("🛑 声荐认证失败", "Token 已过期", "请重新获取令牌");
+  if (signRes.status === 'token_error') {
+    $.notify("🛑 声荐认证失效", "Token过期", "请重新获取");
     return $.done();
   }
 
-  // --- 通知逻辑 (修复重点) ---
-  // 1. 如果是手动点击运行
-  // 2. 或者配置参数为 notify=1
-  if (isManual || ARGS.notify == "1") {
-    const body = `${signResult.message}\n${flowerResult.message}`;
-    $.notify("声荐签到任务", "", body);
-    console.log("通知已发送: " + body.replace(/\n/g, " "));
-  } 
-  // 3. 否则，如果是22点汇总模式
-  else if (hour >= 22) {
-    const body = stats.logs.join("\n");
-    $.notify("📊 声荐每日汇总通知", `今日累计执行 ${stats.logs.length} 次`, body);
-  } 
-  else {
-    console.log(`静默运行中，当前${hour}点，通知模式：${ARGS.notify}`);
+  // --- 通知逻辑 ---
+  if (ARGS.notify == "1" || typeof $argument === "undefined") {
+    $.notify("声荐签到", "", `${signRes.message}\n${flowerRes.message}`);
+  } else if (hour >= 22) {
+    $.notify("📊 声荐汇总", `今日执行 ${stats.logs.length} 次`, stats.logs.join("\n"));
+  } else {
+    console.log(`静默运行: ${signRes.message} | ${flowerRes.message}`);
   }
 
   console.log("--- 任务结束 ---");
   $.done();
-})().catch((e) => {
-  console.log("脚本异常:", e);
-  $.done();
-});
+})().catch((e) => { $.done(); });
 
-// ----------------- Env 兼容层 -----------------
 function Env(name) {
   this.name = name;
-  this.read = (k) => {
-    if (typeof $persistentStore !== "undefined") return $persistentStore.read(k);
-    if (typeof $prefs !== "undefined") return $prefs.valueForKey(k);
-    return null;
-  };
-  this.write = (v, k) => {
-    if (typeof $persistentStore !== "undefined") return $persistentStore.write(v, k);
-    if (typeof $prefs !== "undefined") return $prefs.setValueForKey(v, k);
-    return false;
-  };
+  this.read = (k) => (typeof $persistentStore !== "undefined" ? $persistentStore.read(k) : (typeof $prefs !== "undefined" ? $prefs.valueForKey(k) : null));
+  this.write = (v, k) => (typeof $persistentStore !== "undefined" ? $persistentStore.write(v, k) : (typeof $prefs !== "undefined" ? $prefs.setValueForKey(v, k) : false));
   this.notify = (t, s, b) => {
     if (typeof $notification !== "undefined") $notification.post(t, s, b);
     else if (typeof $notify !== "undefined") $notify(t, s, b);
-    console.log(`[通知] ${t}: ${s}\n${b}`);
+    console.log(`${t}: ${s} ${b}`);
   };
-  this.put = (r, c) => {
-    if (typeof $httpClient !== "undefined") $httpClient.put(r, c);
-    else c && c("No HTTP", null, null);
-  };
-  this.post = (r, c) => {
-    if (typeof $httpClient !== "undefined") $httpClient.post(r, c);
-    else c && c("No HTTP", null, null);
-  };
+  this.put = (r, c) => $httpClient.put(r, c);
+  this.post = (r, c) => $httpClient.post(r, c);
   this.done = (v = {}) => typeof $done !== "undefined" && $done(v);
 }
