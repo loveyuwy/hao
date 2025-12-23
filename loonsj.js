@@ -3,9 +3,9 @@ const tokenKey = "shengjian_auth_token";
 const STATS_KEY = "shengjian_daily_stats";
 let isScriptFinished = false;
 
-// --- 参数解析 (参考酷我脚本逻辑) ---
+// --- 参数解析优化 ---
 const ARGS = (() => {
-    let args = { notify: "true" };
+    let args = { notify: "true" }; // 默认值
     let input = null;
     if (typeof $argument !== "undefined") {
         input = $argument;
@@ -14,18 +14,19 @@ const ARGS = (() => {
     }
     
     if (input) {
-        // 处理 argument=notify=true 这种形式
+        // 处理 argument=notify=true 或 notify=true
         if (input.includes("=")) {
             input.split(/&|,/).forEach(item => {
                 let [k, v] = item.split("=");
                 if (k && v) args[k.trim()] = decodeURIComponent(v.trim());
             });
-        } 
+        }
     }
     return args;
 })();
 
-const isNotifyEnabled = ARGS.notify === "true" || ARGS.notify === true;
+// 强制转为字符串比较，防止类型差异
+const isNotifyEnabled = String(ARGS.notify).trim() === "true";
 const SUMMARY_HOUR = 22; // 汇总通知时间
 
 const rawToken = $.read(tokenKey);
@@ -38,7 +39,7 @@ const commonHeaders = {
   "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
 
-// --- 持久化与汇总函数 ---
+// --- 持久化与汇总函数 (修复崩溃点) ---
 function updateDailyStats(logText) {
     const now = new Date();
     const today = now.toISOString().slice(0, 10); // YYYY-MM-DD
@@ -46,14 +47,24 @@ function updateDailyStats(logText) {
     
     let stats = { date: today, logs: [] };
     try {
-        const stored = JSON.parse($.read(STATS_KEY) || "{}");
-        if (stored.date === today) {
-            stats = stored;
+        const storedStr = $.read(STATS_KEY);
+        if (storedStr) {
+            const stored = JSON.parse(storedStr);
+            if (stored.date === today) {
+                stats = stored;
+            }
         }
-    } catch (e) {}
+    } catch (e) {
+        console.log("读取旧数据失败，重置统计");
+    }
+
+    // 【关键修复】：如果 logs 数组丢失，强制初始化，防止 crash
+    if (!Array.isArray(stats.logs)) {
+        stats.logs = [];
+    }
 
     // 添加本次日志
-    stats.logs.push(`[${timeStr}] ${logText.replace(/\n/g, " | ")}`); // 将换行替换为分隔符以便汇总显示
+    stats.logs.push(`[${timeStr}] ${logText.replace(/\n/g, " | ")}`); 
     $.write(JSON.stringify(stats), STATS_KEY);
     return stats;
 }
@@ -116,7 +127,8 @@ function claimFlower() {
 
 // ----------------- 主逻辑 -----------------
 (async () => {
-  console.log(`--- 声荐任务开始 (通知模式: ${isNotifyEnabled ? "每次" : "22点汇总"}) ---`);
+  console.log(`--- 声荐任务开始 ---`);
+  console.log(`参数检测: notify=[${ARGS.notify}] 类型=[${typeof ARGS.notify}] -> 模式: ${isNotifyEnabled ? "每次通知" : "22点汇总"}`);
 
   if (!token) {
     $.notify("❌ 声荐任务失败", "未找到令牌", "请先运行“声荐获取令牌”脚本。");
@@ -139,7 +151,7 @@ function claimFlower() {
   const body = lines.join("\n");
   const hasError = [signResult, flowerResult].some(r => r.status === 'error');
   
-  // 更新当日记录
+  // 更新当日记录 (带防崩溃)
   const dailyStats = updateDailyStats(body);
 
   // --- 通知决策逻辑 ---
@@ -155,24 +167,24 @@ function claimFlower() {
       else notifyTitle = "✅ 声荐任务完成";
   } else {
       // 模式2：汇总通知
-      console.log(`当前时间: ${currentHour}点, 设定汇总: ${SUMMARY_HOUR}点`);
       if (currentHour === SUMMARY_HOUR) {
           shouldNotify = true;
           notifyTitle = `📊 声荐今日汇总 (${dailyStats.date})`;
           notifyBody = dailyStats.logs.join("\n");
       } else {
-          console.log("非汇总时间，静默运行。");
+          console.log(`当前${currentHour}点，未到汇总时间(${SUMMARY_HOUR}点)，跳过通知。`);
       }
   }
 
   if (shouldNotify) {
       $.notify(notifyTitle, "", notifyBody);
-      console.log(`已发送通知:\n${notifyTitle}\n${notifyBody}`);
+      console.log(`[发送通知] ${notifyTitle}`);
   }
 
   isScriptFinished = true;
   $.done();
 })().catch((e) => {
+  console.log(`[Error] ${e}`);
   const errMsg = (e && typeof e === 'object') ? (e.message || JSON.stringify(e)) : String(e);
   if (!isScriptFinished) $.notify("💥 声荐脚本异常", "执行错误", errMsg);
   $.done();
