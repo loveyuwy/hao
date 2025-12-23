@@ -1,39 +1,12 @@
 const $ = new Env("声荐组合任务");
 
-// ================= 参数解析与配置 =================
-const ARGS = (() => {
-    let args = { notify: "1" };
-    let input = null;
+// ================= 参数解析 (最简稳健版) =================
+// 只要参数里包含 "true" 或 "1" 就视为开启，不用管格式
+const argRaw = typeof $argument !== "undefined" ? String($argument) : "";
+const IS_NOTIFY_ON = argRaw.includes("true") || argRaw.includes("1");
 
-    if (typeof $argument !== "undefined") {
-        input = $argument;
-    }
-
-    if (!input) return args;
-
-    if (typeof input === "object") {
-        if (Array.isArray(input)) {
-            // 对应 argument="[{notify}]"
-            args.notify = input[0] !== undefined ? input[0] : "1";
-        } 
-        // 兼容处理
-        args.notify = String(args.notify || "1");
-        return args;
-    }
-
-    // 字符串处理 (兼容旧格式)
-    let str = String(input).trim().replace(/^\[|\]$/g, "").replace(/^"|"$/g, "");
-    if (str.includes(",")) {
-        let arr = str.split(",");
-        if (arr[0] !== undefined) args.notify = arr[0];
-    } else {
-        args.notify = str;
-    }
-    return args;
-})();
-
-// 统一转换为字符串 "1" (true) 或 "0" (false)
-ARGS.notify = (ARGS.notify === true || ARGS.notify === "true" || ARGS.notify === "1" || ARGS.notify === 1) ? "1" : "0";
+console.log(`[DEBUG] 接收到的参数: ${argRaw}`);
+console.log(`[DEBUG] 通知模式判定: ${IS_NOTIFY_ON ? "🟢 全程通知" : "🟡 仅汇总通知"}`);
 
 const tokenKey = "shengjian_auth_token";
 const STATS_KEY = "shengjian_daily_stats";
@@ -45,6 +18,7 @@ let isScriptFinished = false;
 const isLastRun = (() => {
     const now = new Date();
     const hour = now.getHours();
+    // 只要是22点里的任何时间运行，都算最后一次
     return hour === LAST_RUN_HOUR;
 })();
 
@@ -133,7 +107,7 @@ function claimFlower() {
 
 // ----------------- 主逻辑 -----------------
 (async () => {
-  console.log(`--- 声荐组合任务开始执行 (Notify: ${ARGS.notify === "1" ? "开启" : "仅汇总"}) ---`);
+  console.log(`--- 声荐组合任务开始执行 ---`);
 
   if (!token) {
     $.notify("❌ 声荐任务失败", "未找到令牌", "请先运行“声荐获取令牌”脚本。");
@@ -170,24 +144,21 @@ function claimFlower() {
 
   const body = lines.join("\n");
   
-  // 通知逻辑判断
-  const shouldNotify = ARGS.notify === "1"; // 是否强制开启通知
-  const isSummaryTime = isLastRun;         // 是否是汇总时间 (22点)
-
-  if (shouldNotify) {
-      // 模式1: 每次都通知
+  // ================= 通知核心逻辑 =================
+  if (IS_NOTIFY_ON) {
+      // 模式1: 开关开启 -> 每次必推
       $.notify(title, "", body);
-      console.log(`[通知] 已发送实时通知`);
-  } else if (isSummaryTime) {
-      // 模式2: 仅汇总时间通知
+      console.log(`[通知] ✅ 开关已开启，发送实时通知`);
+  } else if (isLastRun) {
+      // 模式2: 开关关闭 -> 仅22点推汇总
       let summaryTitle = "声荐每日汇总";
-      let summaryBody = `📅 日期: ${dailyStats.date}\n🔄 运行次数: ${dailyStats.runCount}\n───────────\n${body}`;
+      let summaryBody = `📅 日期: ${dailyStats.date}\n🔄 今日运行: ${dailyStats.runCount}次\n───────────\n${body}`;
       $.notify(summaryTitle, "", summaryBody);
-      console.log(`[通知] 已发送每日汇总通知`);
+      console.log(`[通知] 🌙 汇总时间(22点)，发送汇总通知`);
   } else {
-      // 静默模式
-      console.log(`[通知] 静默模式，跳过通知 (当前时间非22点)`);
-      console.log(`通知内容预览:\n${title}\n${body}`);
+      // 模式3: 开关关闭 + 非22点 -> 静默
+      console.log(`[通知] 🔕 静默模式 (开关关闭且非22点)，跳过通知`);
+      console.log(`[预览] 本该发送的内容:\n${title}\n${body}`);
   }
 
   console.log("--- 声荐组合任务结束 ---");
