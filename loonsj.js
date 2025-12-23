@@ -28,16 +28,32 @@ const commonHeaders = {
   "Referer": "https://servicewechat.com/wxa25139b08fe6e2b6/23/page-frame.html"
 };
 
-// 获取持久化统计数据
+// 获取持久化统计数据（修正版）
 function getDailyStats() {
     const today = new Date().toISOString().slice(0, 10);
     let stats = {};
-    try { stats = JSON.parse($.read(STATS_KEY) || "{}"); } catch (e) { stats = {}; }
-    if (stats.date !== today) {
-        stats = { date: today, results: [] };
+    const savedData = $.read(STATS_KEY);
+    
+    try { 
+        if (savedData) {
+            stats = JSON.parse(savedData);
+        }
+    } catch (e) { 
+        console.log("解析旧统计数据失败，重置数据");
+        stats = {}; 
+    }
+
+    // 关键修复：确保 stats.results 始终是一个数组，且日期匹配
+    if (!stats || stats.date !== today || !Array.isArray(stats.results)) {
+        console.log("初始化今日统计容器");
+        stats = { 
+            date: today, 
+            results: [] 
+        };
     }
     return stats;
 }
+
 
 // ----------------- Step 1: 签到 -----------------
 function signIn() {
