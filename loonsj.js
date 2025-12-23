@@ -2,18 +2,19 @@ const $ = new Env("声荐组合任务");
 const tokenKey = "shengjian_auth_token";
 const STATS_KEY = "shengjian_daily_stats";
 
-// --- 增强版参数处理 (参考酷我逻辑) ---
+// --- 增强版参数处理 ---
 const ARGS = (() => {
-    let notifySetting = "true"; // 默认开启通知
+    let notifySetting = true; // 默认开启
     if (typeof $argument !== "undefined" && $argument !== "") {
-        // 处理多种格式: "{notify}", "notify=true", "1" 等
         let argStr = String($argument).toLowerCase();
+        // 只有明确包含 false 或 0 时才判定为关闭
         if (argStr.includes("false") || argStr === "0") {
-            notifySetting = "false";
+            notifySetting = false;
         }
     }
-    return { notify: notifySetting === "true" };
+    return { notify: notifySetting };
 })();
+
 
 // --- 汇总逻辑判断 ---
 const LAST_RUN_HOUR = 22; 
