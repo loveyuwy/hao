@@ -1,6 +1,6 @@
 #!name=声荐每日自动签到
 #!desc=微信小程序声荐每日签到加领取小红花。通知模式：开启则每次运行通知；关闭则仅在22点发送当日汇总。
-#!author=〈ザㄩメ火华 & 修改版
+#!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 #!date=2025-12-23
 
