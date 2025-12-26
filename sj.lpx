@@ -5,12 +5,16 @@
 
 [Argument]
 # 静默运行开关
-silent_switch = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
+# 开启（True）：平时静默，仅在 22 点发送通知。
+# 关闭（False）：每次运行都发送通知。
+silent_switch = switch, false, tag = 静默运行, desc = 开启后平时静默，仅22点通知。
 # 自定义 CRON 执行时间
-cron_exp = input, "0 10,11,12 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式
+# ⚠️ 注意：为了实现“22点发送汇总通知”，CRON 表达式里必须包含 22
+cron_exp = input, "0 10−22/6 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式
 
 [Script]
-cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐任务, argument={silent_switch}
+# 定时任务
+cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/sjqd2.js, timeout=60, tag=声荐任务, argument={silent_switch}
 
 [MITM]
 hostname = xcx.myinyun.com
