@@ -1,37 +1,50 @@
+/*
+ * 这里的代码必须保存到本地文件 sj_custom.js 才能生效
+ * 逻辑：
+ * 1. 如果 silent_switch 为 false (关闭静默) -> 每次运行都通知。
+ * 2. 如果 silent_switch 为 true (开启静默) -> 
+ * - 0点~21点: 不通知（Console里会有日志）。
+ * - 22点: 强制通知（发送每日汇总）。
+ * - 23点: 不通知。
+ */
+
 const $ = new Env("声荐自动签到");
 const tokenKey = "shengjian_auth_token";
 
 let isSilent = false;
 
-// --- 参数处理逻辑 ---
+// --- 1. 处理参数 (Loon/Surge/QX) ---
 if (typeof $argument !== "undefined" && $argument) {
   const argStr = String($argument).toLowerCase();
-  console.log(`[参数检查] 当前参数内容: ${argStr}`);
+  console.log(`[参数检查] 接收到的参数: ${argStr}`);
   
-  // 判断是否开启静默
+  // 只要参数里包含 true/1/#，就开启静默模式
   if (argStr.includes("true") || argStr.includes("#") || argStr.includes("1")) {
     isSilent = true;
   }
   
-  // Loon 变量替换 Bug 修复
+  // 针对 Loon 变量替换未生效的情况做兼容
   if (argStr.includes("{silent_switch}")) {
-    console.log("⚠️ 检测到 Loon 变量替换 Bug，已自动开启静默模式防止弹窗。");
+    console.log("⚠️ 检测到 Loon 变量未替换，默认开启静默模式。");
     isSilent = true; 
   }
 }
 
-// --- 新增：22点强制通知逻辑 ---
+// --- 2. 关键逻辑：22点强制解除静默 ---
 const currentHour = new Date().getHours();
+let isSummaryTime = false;
+
 if (isSilent) {
-  // 如果开启了静默，但当前是 22 点，则强制开启通知（作为汇总）
+  // 如果当前是晚上 22 点 (22:00 - 22:59)
   if (currentHour === 22) {
-    console.log(`🔔 当前时间 ${currentHour}点，触发每日汇总通知，解除静默。`);
-    isSilent = false;
+    console.log(`🔔 当前是 22 点，触发每日汇总，强制解除静默！`);
+    isSilent = false; 
+    isSummaryTime = true;
   } else {
-    console.log(`🤫 当前时间 ${currentHour}点，非汇总时间，保持静默运行。`);
+    console.log(`🤫 当前是 ${currentHour} 点，非汇总时间，保持静默。`);
   }
 } else {
-  console.log(`🔊 静默开关未开启，执行常规通知模式。`);
+  console.log(`🔊 静默开关未开启，正常通知。`);
 }
 
 const rawToken = $.read(tokenKey);
@@ -46,14 +59,13 @@ const commonHeaders = {
 
 (async () => {
   if (!token) {
-    // 无 Token 时，无论是否静默都建议提示，防止漏签（可选）
     if (!isSilent) $.notify("❌ 声荐失败", "未找到Token", "请打开小程序获取。");
     return $.done();
   }
 
   const [signResult, flowerResult] = await Promise.all([signIn(), claimFlower()]);
 
-  // 如果 Token 失效，属于重要错误，强制通知
+  // 如果 Token 失效，属于严重错误，必须通知（忽略静默设置）
   if (signResult.status === 'token_error' || flowerResult.status === 'token_error') {
     $.notify("🛑 声荐认证失败", "Token 已过期", "请重新获取令牌。");
     return $.done();
@@ -62,10 +74,10 @@ const commonHeaders = {
   const body = [signResult.message, flowerResult.message].filter(Boolean).join("\n");
 
   if (isSilent) {
-    console.log(`[静默生效] 已拦截以下通知内容:\n${body}`);
+    console.log(`[静默拦截] 本次运行结果（不会弹窗）:\n${body}`);
   } else {
-    // 这里的 title 改了一下，如果是 22 点汇总，看起来更直观
-    const title = currentHour === 22 ? "声荐每日汇总" : "声荐任务结果";
+    // 根据是否是汇总时间改变标题，方便确认
+    const title = isSummaryTime ? "声荐每日汇总" : "声荐任务结果";
     $.notify(title, "", body);
   }
 })().catch((e) => {
@@ -103,4 +115,5 @@ function claimFlower() {
   });
 }
 
+// Env helper
 function Env(n){this.name=n;this.notify=(t,s,b)=>{if(typeof $notification!="undefined")$notification.post(t,s,b);else if(typeof $notify!="undefined")$notify(t,s,b);else console.log(`${t}\n${s}\n${b}`)};this.read=k=>{if(typeof $persistentStore!="undefined")return $persistentStore.read(k);if(typeof $prefs!="undefined")return $prefs.valueForKey(k)};this.put=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.put(r,c)};this.post=(r,c)=>{if(typeof $httpClient!="undefined")$httpClient.post(r,c)};this.done=v=>{if(typeof $done!="undefined")$done(v)}}
