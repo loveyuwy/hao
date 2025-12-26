@@ -10,7 +10,7 @@
 silent_switch = switch, false, tag = 静默运行, desc = 开启后平时静默，仅22点通知。
 # 自定义 CRON 执行时间
 # ⚠️ 注意：为了实现“22点发送汇总通知”，CRON 表达式里必须包含 22
-cron_exp = input, "0 10−22/6 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式
+cron_exp = input, "0 10-22/6 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式
 
 [Script]
 # 定时任务
