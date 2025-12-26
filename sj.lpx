@@ -1,17 +1,24 @@
 #!name=声荐每日自动签到
-#!desc=微信小程序声荐每日签到。支持自定义执行时间和静默运行。
+#!desc=微信小程序声荐每日签到加领取小红花。
 #!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/SJ.png
 
 [Argument]
-# 静默运行开关
-silent_switch = switch, false, tag = 静默运行, desc = 开启后拦截签到成功的通知。
-# 自定义 CRON 执行时间
-cron_exp = input, "0 10-22/6 * * *", tag = 执行时间, desc = 设置脚本自动签到的 CRON 表达式
+# 开启/关闭 自动抓取Token, 默认开启, 抓到后可关闭
+enable_token_capture = switch, true, true, tag = 抓取Token开关, desc = 默认开启。抓取Token成功后, 可关闭此开关
+
+# CRON表达式, 默认10,16,22点运行
+cron = input, "0 10-22/6 * * *", tag = 执行时间, desc = CRON表达式, 默认10,16,22点运行
+
+# 通知模式开关
+notify = switch, true, false, tag = 每次通知, desc = 打开则每次运行都通知；关闭则仅在22点发送汇总通知。
 
 [Script]
-# 定时任务 (注意此处 argument 后面直接跟变量名，不需要花括号)
-cron {cron_exp} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐任务, argument=silent_switch
+# 抓取Token脚本
+http-response ^https:\/\/xcx\.myinyun\.com:4438\/napi\/wx\/login script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/sjtoken.js, requires-body=true, timeout=60, tag=声荐自动抓取token, enable = {enable_token_capture}
+
+# 每日任务脚本
+cron "0 10-22/6 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/loonsj.js, timeout=60, tag=声荐每日任务, argument="[{notify}]"
 
 [MITM]
 hostname = xcx.myinyun.com
