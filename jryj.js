@@ -1,128 +1,115 @@
 /*
-脚本名称：今日油价 (最终完美版)
-脚本作者：Grok
-功能描述：每日查询油价，支持 Surge 模块 UI 参数编辑。
-更新说明：增加参数智能纠错、超时保护、静默模式支持。
-
-[Surge 模块参数说明]
-argument=province=北京&silent=#
+脚本名称：今日油价 (Surge 面板版)
+功能描述：查询每日油价，支持 Surge 面板显示和静默通知开关。
+更新时间：2025-12-31
 */
 
-const $ = new Env("今日油价");
-
-// --- 1. 参数解析与智能纠错 ---
-let province = "北京"; // 默认兜底
-let isSilent = false;
-
-if (typeof $argument !== "undefined" && $argument) {
-  const args = $argument.trim();
-  
-  // A. 优先处理 Surge 传参失败的情况 (即传入了 literal 字符串)
-  if (args.includes("{province}") || args.includes("province=") === false) {
-      console.log(`⚠️ 检测到配置未被替换 (Raw: ${args})，已自动修正为默认：北京`);
-      province = "北京"; // 强制兜底，保证能跑
-  } 
-  // B. 正常解析参数
-  else {
-    const params = {};
-    args.split("&").forEach((item) => {
-      const [key, val] = item.split("=");
-      if (key && val) params[key.trim()] = val.trim();
-    });
-
-    if (params.province) province = decodeURIComponent(params.province);
-    
-    // 静默判断：包含 # 号即静默
-    if (params.silent && params.silent.includes("#")) {
-        isSilent = true;
-    }
-  }
-}
+// 解析 Surge 传递的参数
+const params = getParams($argument);
+const province = params.province || "广东";
+const isSilent = params.silent === "#"; // 如果参数为 # 则开启静默
+const iconName = params.icon || "fuelpump.fill";
+const iconColor = params.color || "#FF2D55";
 
 const apiUrl = `https://api.iosxx.cn/API/yjcx.php?province=${encodeURIComponent(province)}&format=text`;
 
-!(async () => {
-  // ⏳ 20秒超时竞速，防止脚本卡死
-  const timeoutPromise = new Promise((_, reject) => 
-    setTimeout(() => reject("请求超时 (20s)"), 20000)
-  );
-  await Promise.race([getOilPrice(), timeoutPromise]);
-})()
-  .catch((e) => {
-    console.log(`❌ 运行错误: ${e}`);
-    if (!isSilent) $.msg("今日油价", "❌ 查询失败", String(e));
-  })
-  .finally(() => {
-    $.done();
-  });
+$httpClient.get(apiUrl, (error, response, data) => {
+  if (error) {
+    console.log(`❌ 请求失败: ${error}`);
+    if (!isSilent) $notification.post("今日油价", "❌ 网络请求失败", error);
+    $done();
+    return;
+  }
 
-function getOilPrice() {
-  return new Promise((resolve, reject) => {
-    $.get({ url: apiUrl }, (error, response, data) => {
-      if (error) { reject("网络请求失败"); return; }
-      if (!data || data.length < 5) { reject("接口返回数据为空"); return; }
+  if (!data || data.length < 5) {
+    console.log("❌ 数据为空");
+    if (!isSilent) $notification.post("今日油价", "❌ 接口返回异常", "未获取到有效数据");
+    $done();
+    return;
+  }
 
-      try {
-        // 数据清洗：去除多余空格和换行
-        let text = data.replace(/\s+/g, " ");
-        
-        // 正则提取：匹配 "92号" 或 "92#"
-        const getPrice = (type) => {
-            const reg = new RegExp(`${type}[#号][^\\d]*(\\d+\\.\\d+)`);
-            const match = text.match(reg);
-            return match ? match[1] : null;
-        };
+  try {
+    // --- 1. 数据清洗 ---
+    // 将换行符和多余空格合并为一个空格，方便正则匹配
+    let text = data.replace(/\s+/g, " ");
 
-        const p92 = getPrice("92");
-        const p95 = getPrice("95");
-        const p98 = getPrice("98");
-        const p0  = getPrice("0");
+    // --- 2. 提取价格 ---
+    const getPrice = (type) => {
+      // 匹配 "92#" 或 "92号" 后面紧跟的数字
+      const reg = new RegExp(`${type}[#号][^\\d]*(\\d+\\.\\d+)`);
+      const match = text.match(reg);
+      return match ? match[1] : "--";
+    };
 
-        // 提取预测信息
-        let tips = "";
-        const tipMatch = text.match(/预测提示[:：]?\s*(.*)/);
-        if (tipMatch) {
-            tips = tipMatch[1].split("，")[0].replace("大家相互转告", ""); 
-        }
+    const p92 = getPrice("92");
+    const p95 = getPrice("95");
+    const p98 = getPrice("98");
+    const p0 = getPrice("0");
 
-        let lines = [];
-        if (p92) lines.push(`⛽️ 92号: ${p92} 元/升`);
-        if (p95) lines.push(`⛽️ 95号: ${p95} 元/升`);
-        if (p98) lines.push(`🏎️ 98号: ${p98} 元/升`);
-        if (p0)  lines.push(`🚜 0号柴: ${p0} 元/升`);
+    // --- 3. 提取预测提示 ---
+    let tips = "";
+    const tipMatch = text.match(/预测提示[:：]?\s*(.*)/);
+    if (tipMatch) {
+      // 截取逗号前的内容，去掉废话
+      let rawTips = tipMatch[1];
+      tips = rawTips.split("，")[0].replace("大家相互转告", "").trim();
+    }
 
-        // 数据完整性检查
-        if (lines.length === 0) {
-             if (tips) {
-                 lines.push(tips); // 只有预测也能发
-             } else {
-                 reject("未匹配到有效油价数据"); 
-                 return;
-             }
-        } else {
-            if (tips) {
-                lines.push(""); // 空行分隔
-                tips = tips.replace("目前", "\n📈 ").replace("下次", "🗓️ 下次");
-                lines.push(tips);
-            }
-        }
+    // --- 4. 构建通知内容 (详细) ---
+    let notifyLines = [];
+    notifyLines.push(`⛽️ 92号: ${p92} 元/升`);
+    notifyLines.push(`⛽️ 95号: ${p95} 元/升`);
+    notifyLines.push(`🏎️ 98号: ${p98} 元/升`);
+    notifyLines.push(`🚜 0号柴: ${p0} 元/升`);
+    
+    if (tips) {
+        // 美化提示文案
+        let prettyTips = tips.replace("目前", "\n📈 ").replace("下次", "🗓️ 下次");
+        notifyLines.push(""); // 空行
+        notifyLines.push(prettyTips);
+    }
+    
+    const notifyBody = notifyLines.join("\n");
 
-        const body = lines.join("\n");
-        console.log(`✅ 查询成功 (省份:${province}, 静默:${isSilent})\n${body}`);
-        
-        if (!isSilent) {
-            $.msg(`今日油价 · ${province}`, `📅 ${new Date().toLocaleDateString()}`, body);
-        } else {
-            console.log("🔕 静默模式：已跳过通知");
-        }
-        resolve();
+    // --- 5. 构建面板内容 (精简) ---
+    // 面板空间有限，通常显示核心价格即可
+    const panelContent = `92#: ${p92}  95#: ${p95}\n98#: ${p98}  0#: ${p0}\n${tips.replace("目前", "").replace("预计", "")}`;
 
-      } catch (err) {
-        reject(`数据解析异常: ${err}`);
-      }
+    // --- 6. 执行输出 ---
+    
+    // 控制台日志
+    console.log(`[今日油价] 省份:${province} 静默:${isSilent}`);
+    console.log(notifyBody);
+
+    // 发送通知 (非静默模式下)
+    if (!isSilent) {
+      $notification.post(`今日油价 · ${province}`, `📅 ${new Date().toLocaleDateString()}`, notifyBody);
+    } else {
+      console.log("🔕 静默模式：已拦截通知发送");
+    }
+
+    // 更新 Surge 面板
+    $done({
+      title: `今日油价 · ${province}`,
+      content: panelContent,
+      icon: iconName,
+      "icon-color": iconColor
     });
-  });
-}
 
-// 通用 Env 工具
-function Env(name){return new(class{constructor(name){this.name=name;this.isSurge=typeof $httpClient!=="undefined"&&typeof $loon==="undefined";this.isLoon=typeof $loon!=="undefined";this.isQX=typeof $task!=="undefined"}get(options,callback){if(this.isQX){if(typeof options==="string")options={url:options};options.method="GET";$task.fetch(options).then(r=>callback(null,r,r.body),e=>callback(e.error,null,null))}else{$httpClient.get(options,(e,r,b)=>callback(e,r,b))}}msg(t,s,b){if(this.isSurge||this.isLoon)$notification.post(t,s,b);if(this.isQX)$notify(t,s,b);console.log(`${t}\n${s}\n${b}`)}done(v={}){if(typeof $done!=="undefined")$done(v)}})(name)}
+  } catch (err) {
+    console.log(`❌ 解析错误: ${err}`);
+    if (!isSilent) $notification.post("今日油价", "解析错误", String(err));
+    $done();
+  }
+});
+
+// 辅助函数：解析参数字符串 (key=value&key2=value2)
+function getParams(paramString) {
+  if (!paramString) return {};
+  return Object.fromEntries(
+    paramString
+      .split("&")
+      .map((item) => item.split("="))
+      .map(([k, v]) => [k, decodeURIComponent(v)])
+  );
+}
