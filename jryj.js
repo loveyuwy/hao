@@ -71,9 +71,9 @@ $httpClient.get(apiUrl, (error, response, data) => {
     
     const notifyBody = notifyLines.join("\n");
 
-    // --- 5. 构建面板内容 (精简) ---
-    // 面板空间有限，通常显示核心价格即可
-    const panelContent = `92#: ${p92}  95#: ${p95}\n98#: ${p98}  0#: ${p0}\n${tips.replace("目前", "").replace("预计", "")}`;
+    // --- 5. 构建面板内容 (已添加图标) ---
+    // 在每个油价前添加了 ⛽️ 图标
+    const panelContent = `⛽️ 92#: ${p92}  ⛽️ 95#: ${p95}\n⛽️ 98#: ${p98}  ⛽️ 0#: ${p0}\n${tips.replace("目前", "").replace("预计", "")}`;
 
     // --- 6. 执行输出 ---
     
@@ -103,7 +103,7 @@ $httpClient.get(apiUrl, (error, response, data) => {
   }
 });
 
-// 辅助函数：解析参数字符串 (key=value&key2=value2)
+// 辅助函数：解析参数字符串
 function getParams(paramString) {
   if (!paramString) return {};
   return Object.fromEntries(
