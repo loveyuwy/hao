@@ -1,5 +1,5 @@
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-const ScriptVersion = "1.0.6";
+const ScriptVersion = "1.1.2";
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 if (typeof require === 'undefined') require = importModule;
@@ -172,6 +172,31 @@ class CaishowWidget extends DmYY {
     this.Run();
   }
 
+  // ==========================================
+  // 修复保存问题的核心代码 (请复制这一段)
+  // ==========================================
+  
+  /**
+   * 重写父类的保存方法
+   * 强制将数据同步保存到 ConfigManager (FileManager)
+   */
+  saveSettings(notify = true) {
+    // 1. 关键修复：将 DmYY 内存中的 settings 写入到 settings.json 文件
+    ConfigManager.save(this.settings);
+    
+    // 2. 为了保持兼容，同时也存一份到 Keychain (让父类处理)
+    // 传入 false 防止父类重复弹窗
+    super.saveSettings(false);
+
+    // 3. 如果需要弹窗通知，在这里统一处理
+    if (notify) this.notify('设置成功', '配置已保存到本地文件，稍后刷新');
+    
+    return JSON.stringify(this.settings);
+  }
+
+  // ==========================================
+  // 修复结束
+  // ==========================================
 
   Run() {
     if (config.runsInApp) {      
@@ -190,7 +215,7 @@ class CaishowWidget extends DmYY {
         a.title = "确认重置？"; a.message = "所有个性化颜色、布局、Key都将丢失。";
         a.addAction("确认重置"); a.addCancelAction("取消");
         const idx = await a.presentAlert();
-        if(idx===0){ ConfigManager.clear(); this.settings = Object.assign({}, this.defaultData); ConfigManager.save(this.settings); this.notify("已重置", "请重新运行脚本"); }
+        if(idx===0){ ConfigManager.clear(); this.settings = Object.assign({}, this.defaultData); this.saveSettings(false); this.notify("已重置", "请重新运行脚本"); }
       }, { name: 'trash.fill', color: '#ff3b30', desc: '修复所有问题' });
 
       this.registerAction("检查更新", async () => { await this.updateScript() }, { name: 'cloud.fill', color: '#007aff', desc: `当前版本 v${ScriptVersion}` });
@@ -300,7 +325,7 @@ class CaishowWidget extends DmYY {
                     if (idx !== -1) {
                         const selected = lotteryOptions[idx];
                         this.settings.lottery_type = selected.v;
-                        ConfigManager.save(this.settings);
+                        this.saveSettings(false);
                         this.notify("设置已更新", `当前模式：${selected.t}`);
                     }
                 }
@@ -317,7 +342,7 @@ class CaishowWidget extends DmYY {
             { title: "晚上 (18:00-23:00)", type: "input", val: `${prefix}_text_greeting_evening`, placeholder: "默认: " + greetingText.nightText }
         ]
     }]);
-    ConfigManager.save(this.settings);
+    this.saveSettings(false);
   }
 
   async handleStyleSettingsMenu(prefix) {
@@ -386,8 +411,7 @@ class CaishowWidget extends DmYY {
           }
           // 用换行符连接并保存
           this.settings[key] = newLines.join("\n");
-          ConfigManager.save(this.settings);
-          this.notify("✅ 设置已保存", "请返回并重新运行脚本查看");
+          this.saveSettings();
       }
   }
 
@@ -425,7 +449,7 @@ class CaishowWidget extends DmYY {
                     if (idx !== -1) {
                         const newVal = (idx === 0) ? "true" : "false";
                         this.settings[keyBat] = newVal;
-                        ConfigManager.save(this.settings);
+                        this.saveSettings(false);
                         this.notify("设置已保存", idx===0 ? "已开启电量显示" : "已关闭电量显示");
                         await this.handleVisibilityMenu(prefix, styleName);
                     }
@@ -447,7 +471,7 @@ class CaishowWidget extends DmYY {
                     if (idx !== -1) {
                         const newVal = (idx === 0) ? "true" : "false";
                         this.settings[keyPoe] = newVal;
-                        ConfigManager.save(this.settings);
+                        this.saveSettings(false);
                         this.notify("设置已保存", idx===0 ? "已开启诗词" : "已关闭诗词");
                         await this.handleVisibilityMenu(prefix, styleName);
                     }
@@ -484,7 +508,7 @@ class CaishowWidget extends DmYY {
             { title: "Y轴偏移", desc: "正下负上", type: "input", val: `${prefix}_layout_${code}_y`, placeholder: "0" }
         ]
     }]);
-    ConfigManager.save(this.settings);
+    this.saveSettings(false);
   }
 
   async handleSpacingMenu(prefix) {
@@ -493,6 +517,15 @@ class CaishowWidget extends DmYY {
         { title: "日期区-横向", desc:"(左右间距,调小防溢出)", type: "input", val: `${prefix}_space_cal_w`, placeholder: "28" },
         { title: "日期区-行高", desc:"(上下行距)", type: "input", val: `${prefix}_space_cal_h`, placeholder: "3" }
     ];
+    
+    // 【新增】关键词过滤和序号选择功能
+    menu.push({ title: "日程关键词(重要)", desc:"(只显示含此词的日程,留空显示所有)", type: "input", val: `${prefix}_schedule_keyword`, placeholder: "例如: 柴油" });
+    
+    // 如果不是第四套(第四套是列表，通常不需要指定第几条，只需过滤)，则添加序号选择
+    if (prefix !== "s4") {
+        menu.push({ title: "指定显示第几条", desc:"(筛选后的第几条, 0是第一条)", type: "input", val: `${prefix}_schedule_index`, placeholder: "0" });
+    }
+
     if (prefix === "s3") {
         menu.push({ title: "倒计时-行高", type: "input", val: `${prefix}_space_holiday_h`, placeholder: "4" });
     }
@@ -502,10 +535,10 @@ class CaishowWidget extends DmYY {
         menu.push({ title: "跳过指定序号", desc:"如: 2,4 (跳过第2和第4个)", type: "input", val: `${prefix}_schedule_offset`, placeholder: "2,4" });
     }
     await this.renderAppView([{ 
-        title: `间距调整 (${prefix})`,
+        title: `间距与筛选 (${prefix})`,
         menu: menu
     }]);
-    ConfigManager.save(this.settings);
+    this.saveSettings(false);
   }
 
   async handleSizeMenu(prefix) {
@@ -537,8 +570,8 @@ class CaishowWidget extends DmYY {
         {
         title: `局部微调 (${prefix})`,
         menu: [
-            { title: "✏️ 修改局部数值", val: "size_edit", icon: { name: "pencil", color: "#007AFF" }, desc: "进入单独调整", onClick: async () => { await this.renderAppView([{ title: "局部缩放 (百分比)", menu: menuItems }]); ConfigManager.save(this.settings); }},
-            { title: "↩️ 恢复默认", val: "size_reset", icon: { name: "arrow.counterclockwise", color: "#FF3B30" }, desc: "重置当前套系字体", onClick: async () => { items.forEach(k => this.settings[`${prefix}_size_${k.id}`] = "100"); this.settings["global_font_size"] = "100"; ConfigManager.save(this.settings); this.notify("已恢复", "字体大小已重置"); }}
+            { title: "✏️ 修改局部数值", val: "size_edit", icon: { name: "pencil", color: "#007AFF" }, desc: "进入单独调整", onClick: async () => { await this.renderAppView([{ title: "局部缩放 (百分比)", menu: menuItems }]); this.saveSettings(false); }},
+            { title: "↩️ 恢复默认", val: "size_reset", icon: { name: "arrow.counterclockwise", color: "#FF3B30" }, desc: "重置当前套系字体", onClick: async () => { items.forEach(k => this.settings[`${prefix}_size_${k.id}`] = "100"); this.settings["global_font_size"] = "100"; this.saveSettings(false); this.notify("已恢复", "字体大小已重置"); }}
         ]
     }]);
   }
@@ -567,8 +600,8 @@ class CaishowWidget extends DmYY {
     await this.renderAppView([{
         title: `颜色配置 (${prefix})`,
         menu: [
-            { title: "🎨 修改颜色", val: "color_edit", icon: { name: "paintpalette", color: "#007AFF" }, desc: "进入选色页面", onClick: async () => { await this.renderAppView([{ title: "自定义颜色", menu: menuItems }]); ConfigManager.save(this.settings); }},
-            { title: "↩️ 恢复默认", val: "color_reset", icon: { name: "arrow.counterclockwise", color: "#FF3B30" }, desc: "重置当前套系颜色", onClick: async () => { items.forEach(k => this.settings[`${prefix}_color_${k.id}`] = baseConfigKeys[`color_${k.id}`]); ConfigManager.save(this.settings); this.notify("已恢复", "颜色已重置"); }}
+            { title: "🎨 修改颜色", val: "color_edit", icon: { name: "paintpalette", color: "#007AFF" }, desc: "进入选色页面", onClick: async () => { await this.renderAppView([{ title: "自定义颜色", menu: menuItems }]); this.saveSettings(false); }},
+            { title: "↩️ 恢复默认", val: "color_reset", icon: { name: "arrow.counterclockwise", color: "#FF3B30" }, desc: "重置当前套系颜色", onClick: async () => { items.forEach(k => this.settings[`${prefix}_color_${k.id}`] = baseConfigKeys[`color_${k.id}`]); this.saveSettings(false); this.notify("已恢复", "颜色已重置"); }}
         ]
     }]);
   }
@@ -593,11 +626,11 @@ class CaishowWidget extends DmYY {
             { title: "🗑 清除所有图片", val: "bg_clear", icon: { name: "trash", color: "#FF3B30" }, desc: "恢复纯色背景", onClick: async () => { ConfigManager.rmImg(filename); ConfigManager.rmImg(filenameDay); ConfigManager.rmImg(filenameNight); this.notify("成功", "背景已清除"); }}
         ]
     }]);
-    ConfigManager.save(this.settings);
+    this.saveSettings(false);
   }
 
   async setBasicConfig() {
-     const l=async()=>{try{const lo=await Location.current();const g=await Location.reverseGeocode(lo.latitude,lo.longitude,"zh_cn");this.settings.fixedLat=String(lo.latitude);this.settings.fixedLng=String(lo.longitude);this.settings.fixedCity=g[0].locality;this.settings.fixedSubCity=g[0].subLocality;ConfigManager.save(this.settings);this.notify("定位成功","已保存");await this.setBasicConfig();}catch(e){this.notify("定位失败",e.message);await this.setBasicConfig();}};
+     const l=async()=>{try{const lo=await Location.current();const g=await Location.reverseGeocode(lo.latitude,lo.longitude,"zh_cn");this.settings.fixedLat=String(lo.latitude);this.settings.fixedLng=String(lo.longitude);this.settings.fixedCity=g[0].locality;this.settings.fixedSubCity=g[0].subLocality;this.saveSettings(false);this.notify("定位成功","已保存");await this.setBasicConfig();}catch(e){this.notify("定位失败",e.message);await this.setBasicConfig();}};
      const items = [
          { title:"彩云API Key", type:"input", val:"apiKey", placeholder:"请输入Token" },
          { title:"免费申请Token", val:"apply_token", icon: {name: "key", color: "#34C759"}, desc:"点击跳转官网", onClick:async()=>{Safari.open("https://platform.caiyunapp.com/login")} },
@@ -606,7 +639,7 @@ class CaishowWidget extends DmYY {
          { title:"锁定定位", type:"switch", val:"lockLocation" }
      ];
      await this.renderAppView([{ title:"基础设置 (全局生效)", menu:items }, { title:"固定坐标", menu:[{ title:"经度", type:"input", val:"fixedLng" }, { title:"纬度", type:"input", val:"fixedLat" }, { title:"城市", type:"input", val:"fixedCity" }, { title:"区域", type:"input", val:"fixedSubCity" }] }]);
-     ConfigManager.save(this.settings);
+     this.saveSettings(false);
   }
 
   async handleStyleSwitch() {
@@ -638,7 +671,7 @@ class CaishowWidget extends DmYY {
                 
                 if (idx === 0) {
                     this.settings.styleModel = o.v;
-                    ConfigManager.save(this.settings);
+                    this.saveSettings(false);
                     this.notify("✅ 样式已切换", `当前模式：${o.t} (请重新运行)`);
                 }
             }
@@ -667,7 +700,7 @@ class CaishowWidget extends DmYY {
         ConfigManager.saveCache("location_cache.json", location); 
         this.settings.fixedLat = String(l.latitude); this.settings.fixedLng = String(l.longitude);
         this.settings.fixedCity = g[0].locality; this.settings.fixedSubCity = g[0].subLocality;
-        ConfigManager.save(this.settings);
+        this.saveSettings(false);
       } catch(e) { const c = ConfigManager.readCache("location_cache.json"); if (c) location = c; else location.locality = "定位失败"; }
     }
     this.location = location;
@@ -1086,7 +1119,14 @@ class CaishowWidget extends DmYY {
                .map(n => n - 1)     
     );
 
-    let targetSchedules = schedules.filter((_, index) => !skipIndices.has(index));
+    // 【新增】关键词过滤逻辑
+    let keyword = this.settings[`${this.activePrefix}schedule_keyword`];
+    let filteredSchedules = schedules;
+    if (keyword && keyword.trim() !== "") {
+        filteredSchedules = schedules.filter(e => e.title.includes(keyword));
+    }
+
+    let targetSchedules = filteredSchedules.filter((_, index) => !skipIndices.has(index));
 
     let titleStack = box.addStack(); titleStack.centerAlignContent();
     let iSz = this.s(15,"schedule_title"); 
@@ -1101,7 +1141,8 @@ class CaishowWidget extends DmYY {
 
     if (targetSchedules.length === 0) {
         let r = box.addStack(); r.centerAlignContent();
-        this.addText(r, "无后续安排", 12.2, "schedule_item");
+        let tips = keyword ? "无含关键词日程" : "无后续安排";
+        this.addText(r, tips, 12.2, "schedule_item");
     } else {
         let listWrapper = box.addStack();
         listWrapper.layoutVertically();
@@ -1166,62 +1207,111 @@ class CaishowWidget extends DmYY {
         }
     }
   }
+
   
-  // 【修改】合并节日和生日逻辑
   getNextHolidays() {
-    const now = new Date(); const currentYear = now.getFullYear();
-    const publicHolidays = [ { name: "元旦", m: 1, d: 1 }, { name: "情人节", m: 2, d: 14 }, { name: "妇女节", m: 3, d: 8 }, { name: "劳动节", m: 5, d: 1 }, { name: "儿童节", m: 6, d: 1 }, { name: "建军节", m: 8, d: 1 }, { name: "教师节", m: 9, d: 10 }, { name: "国庆节", m: 10, d: 1 }, { name: "万圣节", m: 11, d: 1 }, { name: "圣诞节", m: 12, d: 25 } ];
-    const holidayMap = { 2025: ["01-29", "04-04", "05-31", "10-06"], 2026: ["02-17", "04-05", "06-19", "09-25"], 2027: ["02-06", "04-05", "06-09", "09-15"], 2028: ["01-26", "04-04", "05-28", "10-03"], 2029: ["02-13", "04-04", "06-16", "09-22"], 2030: ["02-03", "04-05", "06-05", "09-12"], 2031: ["01-23", "04-05", "06-24", "10-01"], 2032: ["02-11", "04-04", "06-12", "09-19"], 2033: ["01-31", "04-04", "06-01", "09-08"], 2034: ["02-19", "04-05", "06-20", "09-27"] };
+    const now = new Date(); 
+    const currentYear = now.getFullYear();
+    
+    // 1. 定义公历固定节日
+    const publicHolidays = [ 
+      { name: "元旦", m: 1, d: 1 }, { name: "情人节", m: 2, d: 14 }, 
+      { name: "妇女节", m: 3, d: 8 }, { name: "劳动节", m: 5, d: 1 }, 
+      { name: "儿童节", m: 6, d: 1 }, { name: "建军节", m: 8, d: 1 }, 
+      { name: "教师节", m: 9, d: 10 }, { name: "国庆节", m: 10, d: 1 }, 
+      { name: "万圣节", m: 11, d: 1 }, { name: "圣诞节", m: 12, d: 25 } 
+    ];
+    
+    // 2. 农历/变动节日映射表
+    const holidayMap = { 
+      2025: ["01-29", "04-04", "05-31", "10-06"], 
+      2026: ["02-17", "04-05", "06-19", "09-25"], 
+      2027: ["02-06", "04-05", "06-09", "09-15"], 
+      2028: ["01-26", "04-04", "05-28", "10-03"], 
+      2029: ["02-13", "04-04", "06-16", "09-22"], 
+      2030: ["02-03", "04-05", "06-05", "09-12"],
+      2031: ["01-23", "04-05", "06-24", "10-01"]
+    };
+
     let allHolidays = [];
     
-    // 1. 添加公历固定节日
-    for (let y = currentYear; y <= currentYear + 1; y++) {
-      if (!holidayMap[y]) continue;
-      publicHolidays.forEach(h => { allHolidays.push({ name: h.name, date: new Date(y, h.m - 1, h.d) }); });
-      const [spring, qingming, dragon, midAutumn] = holidayMap[y];
-      let springDate = new Date(`${y}-${spring}`); allHolidays.push({ name: "春节", date: springDate });
-      let eveDate = new Date(springDate.getTime() - 24*60*60*1000); allHolidays.push({ name: "除夕", date: eveDate });
-      let lanternDate = new Date(springDate.getTime() + 14*24*60*60*1000); allHolidays.push({ name: "元宵", date: lanternDate });
-      allHolidays.push({ name: "清明", date: new Date(`${y}-${qingming}`) }); allHolidays.push({ name: "端午", date: new Date(`${y}-${dragon}`) }); allHolidays.push({ name: "中秋", date: new Date(`${y}-${midAutumn}`) });
+    // 辅助函数：安全创建日期
+    const createDate = (y, m, d) => new Date(y, m - 1, d);
+    const parseDateStr = (y, str) => {
+        const p = str.split(/[-/]/);
+        return new Date(y, parseInt(p[0]) - 1, parseInt(p[1]));
+    };
+
+    // 【核心修复】从去年(currentYear-1)开始循环，以捕捉年初时的上一农历年生日
+    for (let y = currentYear - 1; y <= currentYear + 1; y++) {
+      
+      // 添加公历固定节日 (只添加今明两年的，去年的没必要算)
+      if (y >= currentYear) {
+          publicHolidays.forEach(h => { 
+              allHolidays.push({ name: h.name, date: createDate(y, h.m, h.d) }); 
+          });
+      }
+
+      // 添加变动节日 (春节等)
+      if (y >= currentYear && holidayMap[y]) {
+          const [spring, qingming, dragon, midAutumn] = holidayMap[y];
+          let springDate = parseDateStr(y, spring);
+          allHolidays.push({ name: "春节", date: springDate });
+          allHolidays.push({ name: "除夕", date: new Date(springDate.getTime() - 24*60*60*1000) });
+          allHolidays.push({ name: "元宵", date: new Date(springDate.getTime() + 14*24*60*60*1000) });
+          allHolidays.push({ name: "清明", date: parseDateStr(y, qingming) });
+          allHolidays.push({ name: "端午", date: parseDateStr(y, dragon) });
+          allHolidays.push({ name: "中秋", date: parseDateStr(y, midAutumn) });
+      }
+
+      // 添加用户生日 (关键逻辑：无论哪一年都计算，后续靠filter过滤掉过去的)
+      let bData = this.settings[`${this.activePrefix}birthday_list`] || "";
+      if (bData) {
+          let lines = bData.split("\n");
+          for (let line of lines) {
+              line = line.replace(/，/g, ",");
+              let parts = line.split(",");
+              if (parts.length < 2) continue;
+              
+              let name = parts[0].trim();
+              let dateStr = parts[1].trim(); 
+              let type = (parts.length > 2 && (parts[2].includes("农") || parts[2].includes("Lunar"))) ? "lunar" : "solar";
+              
+              let dm = dateStr.split(/[-/]/);
+              if(dm.length !== 2) continue;
+              let m = parseInt(dm[0]);
+              let d = parseInt(dm[1]);
+              
+              let targetDate = null;
+              try {
+                  if (type === "lunar") {
+                      // 这里会计算 2025年的农历11月14日 -> 得到 2026年1月2日
+                      targetDate = getSolarFromLunar(y, m, d);
+                  } else {
+                      targetDate = createDate(y, m, d);
+                  }
+              } catch(e) {}
+              
+              if (targetDate && !isNaN(targetDate.getTime())) {
+                  allHolidays.push({ name: name, date: targetDate });
+              }
+          }
+      }
     }
 
-    // 2. 添加用户生日
-    let bData = this.settings[`${this.activePrefix}birthday_list`] || "";
-    if (bData) {
-        let lines = bData.split("\n");
-        for (let line of lines) {
-            line = line.replace(/，/g, ",");
-            let parts = line.split(",");
-            if (parts.length < 2) continue;
-            
-            let name = parts[0].trim();
-            let dateStr = parts[1].trim(); // MM-DD
-            let type = (parts.length > 2 && (parts[2].includes("农") || parts[2].includes("Lunar"))) ? "lunar" : "solar";
-            
-            let dm = dateStr.split("-");
-            if(dm.length !== 2) continue;
-            let m = parseInt(dm[0]);
-            let d = parseInt(dm[1]);
-            
-            // 计算今明两年的生日
-            for(let y = currentYear; y <= currentYear + 1; y++) {
-                let targetDate;
-                if (type === "lunar") {
-                    targetDate = getSolarFromLunar(y, m, d);
-                } else {
-                    targetDate = new Date(y, m - 1, d);
-                }
-                if (targetDate) {
-                    allHolidays.push({ name: name, date: targetDate });
-                }
-            }
-        }
-    }
-
-    let today = new Date(); today.setHours(0, 0, 0, 0);
-    let results = allHolidays.map(h => { let diff = (h.date - today) / (1000 * 60 * 60 * 24); return { name: h.name, days: Math.ceil(diff), date: h.date }; }).filter(h => h.days >= 0).sort((a, b) => a.days - b.days);
+    // 计算天数差并排序
+    let today = new Date(); 
+    today.setHours(0, 0, 0, 0);
     
-    // 去重逻辑：同名且同天数的去重
+    let results = allHolidays.map(h => { 
+        if (!h.date) return null;
+        let diff = (h.date - today) / (1000 * 60 * 60 * 24); 
+        return { name: h.name, days: Math.ceil(diff), date: h.date }; 
+    })
+    .filter(h => h && !isNaN(h.days) && h.days >= 0) // 过滤掉已经过去的
+    .sort((a, b) => a.days - b.days);
+    
+    // 去重逻辑
     let uniqueList = []; let seenKeys = new Set();
     for (let h of results) { 
         let key = h.name + "_" + h.days;
@@ -1233,6 +1323,7 @@ class CaishowWidget extends DmYY {
     }
     return uniqueList;
   }
+
 
   applyLayout(s, c, b={t:0,l:0,b:0,r:0}) { 
     let x = parseInt(this.settings[`${this.activePrefix}layout_${c}_x`]) || 0;
@@ -1276,7 +1367,7 @@ class CaishowWidget extends DmYY {
         tStack.addSpacer(30);
         
         let statusBox = tStack.addStack();
-        statusBox.backgroundColor = new Color("#666666", 0.3); // 半透明背景
+        statusBox.backgroundColor = new Color("#666666", 0.3); 
         statusBox.cornerRadius = 4;
         statusBox.setPadding(1, 4, 1, 4);
         statusBox.centerAlignContent();
@@ -1372,14 +1463,35 @@ class CaishowWidget extends DmYY {
       let at = this.addText(pStack, `— ${author}`, 9, "poetry"); at.rightAlignText();
     }
     
+    // 【修改部分】这里处理日程显示逻辑
     if (this.activePrefix !== "s4_" && data.schedules.length > 0) {
-      stack.addSpacer(4);
-      let sStack = stack.addStack(); sStack.centerAlignContent();
-      let sIco = sStack.addImage(this.getSFIco("megaphone")); sIco.imageSize = new Size(10,10); sIco.tintColor = this.getConfColor("info");
-      sStack.addSpacer(4);
-      this.addText(sStack, data.schedules[0].title, 11, "info");
+      
+      // 1. 获取所有日程
+      let displayEvents = data.schedules;
+      
+      // 2. 获取设置的关键词和序号
+      let keyword = this.settings[`${this.activePrefix}schedule_keyword`];
+      let targetIndex = parseInt(this.settings[`${this.activePrefix}schedule_index`]) || 0;
+      
+      // 3. 如果设置了关键词，进行过滤
+      if (keyword && keyword.trim() !== "") {
+          displayEvents = displayEvents.filter(e => e.title.includes(keyword));
+      }
+      
+      // 4. 根据序号获取最终要显示的那一条
+      let finalEvent = displayEvents[targetIndex];
+      
+      // 5. 如果找到了就显示
+      if (finalEvent) {
+          stack.addSpacer(4);
+          let sStack = stack.addStack(); sStack.centerAlignContent();
+          let sIco = sStack.addImage(this.getSFIco("megaphone")); sIco.imageSize = new Size(10,10); sIco.tintColor = this.getConfColor("info");
+          sStack.addSpacer(4);
+          this.addText(sStack, finalEvent.title, 11, "info");
+      }
     }
   }
+
   
   renderLotteryBalls(stack, numString, type, isCompact = false) {
       const cRed = new Color("#FF3B30");
@@ -1455,7 +1567,7 @@ class CaishowWidget extends DmYY {
     timeStack.setPadding(0, 4, 0, 4);
     const currentDate = new Date();
     const lunarObj = this.getLunarDate_Precise(currentDate);
-    const zodiac = zodiacAnimals[(currentDate.getFullYear() - 4) % 12];
+    const zodiac = zodiacAnimals[(lunarObj.year - 4) % 12];
     const weekNumber = getWeekOfYear(currentDate);
     const dayOfYear = getDayOfYear(currentDate);
     const totalDays = (currentDate.getFullYear() % 4 === 0) ? 366 : 365;
@@ -1635,7 +1747,7 @@ class CaishowWidget extends DmYY {
   }
 
   airQuality(v) { if(v<=50)return "优"; if(v<=100)return "良"; if(v<=150)return "轻"; if(v<=200)return "中"; if(v<=300)return "重"; return "严"; }
-  getLunarDate_Precise(date) { const lm=["正月","二月","三月","四月","五月","六月","七月","八月","九月","十月","冬月","腊月"]; const ld=["初一","初二","初三","初四","初五","初六","初七","初八","初九","初十","十一","十二","十三","十四","十五","十六","十七","十八","十九","二十","廿一","廿二","廿三","廿四","廿五","廿六","廿七","廿八","廿九","三十"]; let y=date.getFullYear(),m=date.getMonth()+1,d=date.getDate(); let i,sum=348,offset=(Date.UTC(y,m-1,d)-Date.UTC(1900,0,31))/86400000; for(i=1900;i<2101&&offset>0;i++){sum=lYearDays(i);offset-=sum;} if(offset<0){offset+=sum;i--;} let leap=lunarInfo[i-1900]&0xf,isLeap=false,j,md; for(j=1;j<13&&offset>0;j++){ md=(leap===j-1&&!isLeap)?((lunarInfo[i-1900]&0x10000)?30:29):((lunarInfo[i-1900]&(0x10000>>j))?30:29); if(isLeap&&j===leap+1)isLeap=false;else if(leap>0&&j===leap+1&&!isLeap){isLeap=true;--j;} offset-=md; } if(offset<0){offset+=md;--j;} if(j<1)j=1;if(j>12)j=12; return {month:(isLeap?"闰":"")+lm[j-1],day:ld[Math.floor(offset)]||"初一"}; }
+  getLunarDate_Precise(date) { const lm=["正月","二月","三月","四月","五月","六月","七月","八月","九月","十月","冬月","腊月"]; const ld=["初一","初二","初三","初四","初五","初六","初七","初八","初九","初十","十一","十二","十三","十四","十五","十六","十七","十八","十九","二十","廿一","廿二","廿三","廿四","廿五","廿六","廿七","廿八","廿九","三十"]; let y=date.getFullYear(),m=date.getMonth()+1,d=date.getDate(); let i,sum=348,offset=(Date.UTC(y,m-1,d)-Date.UTC(1900,0,31))/86400000; for(i=1900;i<2101&&offset>0;i++){sum=lYearDays(i);offset-=sum;} if(offset<0){offset+=sum;i--;} let leap=lunarInfo[i-1900]&0xf,isLeap=false,j,md; for(j=1;j<13&&offset>0;j++){ md=(leap===j-1&&!isLeap)?((lunarInfo[i-1900]&0x10000)?30:29):((lunarInfo[i-1900]&(0x10000>>j))?30:29); if(isLeap&&j===leap+1)isLeap=false;else if(leap>0&&j===leap+1&&!isLeap){isLeap=true;--j;} offset-=md; } if(offset<0){offset+=md;--j;} if(j<1)j=1;if(j>12)j=12; return {year: i, month:(isLeap?"闰":"")+lm[j-1],day:ld[Math.floor(offset)]||"初一"}; }
 }
 
 // 【修复版】农历转公历辅助函数 (修复了重复累加闰月导致多出30天的问题)
