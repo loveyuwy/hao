@@ -1,5 +1,5 @@
 #!name=妙回输入法
-#!desc=破解会员
+#!desc=解锁会员
 
 [Script]
 mh = type=http-response, pattern=^https:\/\/cn\.api\.helix\.apitonx\.com\/v1\/apple\/users\/com\.miaohui\.smartkeyboard\/.*, script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/mh.js, requires-body=true, max-size=-1, timeout=60
