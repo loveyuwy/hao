@@ -2,7 +2,7 @@
 #!desc=去除橘子开屏和广告
 
 [Rule]
-DOMAIN,api-access.pangolin-sdk-toutiao-b.com,REJECT
-DOMAIN,api-access.pangolin-sdk-toutiao.com,REJECT
-DOMAIN,p26-be-pack-sign.pglstatp-toutiao.com,REJECT
-DOMAIN,p11-sign.douyinpic.com,REJECT
+DOMAIN,api-access.pangolin-sdk-toutiao-b.com,REJECT-TINYGIF
+DOMAIN,api-access.pangolin-sdk-toutiao.com,REJECT-TINYGIF
+DOMAIN,p26-be-pack-sign.pglstatp-toutiao.com,REJECT-TINYGIF
+DOMAIN,p11-sign.douyinpic.com,REJECT-TINYGIF
