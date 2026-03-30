@@ -1,10 +1,8 @@
 const $ = new Env("VRKA 众安任务");
 
 (async () => {
-  // --- 1. 获取并处理多账号 Token ---
   let tokens = [];
   if (typeof $argument !== "undefined" && $argument) {
-    // 按 # 分割并过滤掉空值和引号
     tokens = $argument.split("#")
       .map(t => t.trim().replace(/['" ]/g, ""))
       .filter(t => t !== "");
@@ -18,7 +16,6 @@ const $ = new Env("VRKA 众安任务");
 
   console.log(`🚀 检测到 ${tokens.length} 个账号，开始执行...`);
 
-  // 逐个账号执行（按顺序）
   for (let i = 0; i < tokens.length; i++) {
     const currentToken = tokens[i];
     const accountIdx = i + 1;
@@ -30,7 +27,6 @@ const $ = new Env("VRKA 众安任务");
       console.log(`❌ 账号 [${accountIdx}] 发生未知错误: ${e}`);
     }
     
-    // 账号之间稍微停顿 1 秒，防止请求过快被拦截
     if (i < tokens.length - 1) await new Promise(r => setTimeout(r, 1000));
   }
 
@@ -57,7 +53,6 @@ function runTask(token, idx) {
       } else if (resp.status === 400) {
         notifyMsg = `❌ 账号 [${idx}] Token 无效 (400)`;
       } else {
-        // 截取逻辑
         const lines = data.split('\n');
         let start = -1, end = -1;
         for (let i = 0; i < lines.length; i++) if (lines[i].includes("📝 任务处理结果")) start = i;
@@ -72,7 +67,6 @@ function runTask(token, idx) {
 
       console.log(`账号 [${idx}] 结果:\n${notifyMsg}`);
 
-      // --- 金额判断 ---
       let amount = 0;
       const amountMatch = notifyMsg.match(/(?:奖金|提现|金额)[:：]\s*([\d.]+)/);
       if (amountMatch) amount = parseFloat(amountMatch[1]);
@@ -90,7 +84,6 @@ function runTask(token, idx) {
   });
 }
 
-// Env 函数（保持你原来脚本底部的 Env 不变，但建议包含 get/notify/done）
 function Env(name) {
   const isSurge = typeof $httpClient !== "undefined";
   return {
