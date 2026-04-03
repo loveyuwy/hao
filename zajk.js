@@ -1,7 +1,7 @@
-const $ = new Env("🏥 众安任务");
+const $ = new Env("🏥 众安健康");
 
 (async () => {
-  console.log("\n================= 🚀 脚本开始执行 =================");
+  console.log("\n================= 🚀 众安健康 开始执行 =================");
   let tokens = [];
   
   if (typeof $argument !== "undefined" && $argument) {
@@ -15,7 +15,7 @@ const $ = new Env("🏥 众安任务");
 
   if (tokens.length === 0) {
     console.log(`[配置错误] 未检测到任何 Token，请在模块/重写设置中填入参数。`);
-    $.notify("🏥 众安任务", "❌ 配置错误", "请先在模块设置中填入至少一个 Token");
+    $.notify("🏥 众安健康", "❌ 配置错误", "请先在模块设置中填入至少一个 Token");
     $.done();
     return;
   }
@@ -31,7 +31,7 @@ const $ = new Env("🏥 众安任务");
 
   await Promise.all(tasks);
 
-  console.log(`\n================= 🎉 所有任务执行完毕 =================`);
+  console.log(`\n================= 🎉 众安健康 执行完毕 =================`);
   $.done();
 })();
 
@@ -43,7 +43,6 @@ function runTask(token, idx) {
     console.log(`\n▶️ [账号 ${idx}] 开始处理...`);
     const url = `https://api.iosxx.cn/zajkcx.php?token=${token}`;
     
-    // 脱敏打印URL，防止日志泄露完整 Token
     const safeUrl = url.replace(/(token=)(.{5}).*(.{5})/, "$1$2***$3");
     console.log(`[账号 ${idx}] 发起请求: ${safeUrl}`);
 
@@ -66,7 +65,6 @@ function runTask(token, idx) {
           console.log(`[账号 ${idx}] 🚫 Token无效 (HTTP 400)`);
           notifyMsg = `🚫 Token 无效 (HTTP 400)`;
         } else if (data) {
-          // 【核心排错】打印原始返回数据的前200个字符，防止接口数据格式突变
           console.log(`[账号 ${idx}] 📦 原始返回数据片段: ${data.substring(0, 200).replace(/\n/g, ' ')}...`);
           
           const lines = data.split('\n');
@@ -90,7 +88,6 @@ function runTask(token, idx) {
       console.log(`[账号 ${idx}] 🧾 最终解析文本:\n${notifyMsg}`);
 
       let amount = 0;
-      // 匹配“可提现金额”或其他金额
       const withdrawMatch = notifyMsg.match(/(?:可提现金额)[:：]\s*([\d.]+)/);
       const amountMatch = notifyMsg.match(/(?:奖金|提现|金额)[:：]\s*([\d.]+)/);
       
@@ -106,10 +103,10 @@ function runTask(token, idx) {
 
       if (amount >= 5) {
         console.log(`[账号 ${idx}] 🔔 触发弹窗：金额达标 (${amount}元 >= 5元)`);
-        $.notify(`🏥 众安任务 [账号 ${idx}]`, `💎 可提现金额达标: ${amount} 元`, `✨ 快去提现吧！\n\n${notifyMsg}`);
+        $.notify(`🏥 众安健康 [账号 ${idx}]`, `💎 可提现金额达标: ${amount} 元`, `✨ 快去提现吧！\n\n${notifyMsg}`);
       } else if (notifyMsg.includes("🚫") || notifyMsg.includes("📡") || notifyMsg.includes("📭")) {
         console.log(`[账号 ${idx}] 🔔 触发弹窗：脚本执行异常`);
-        $.notify(`🏥 众安任务 [账号 ${idx}]`, "🚨 脚本执行异常", notifyMsg);
+        $.notify(`🏥 众安健康 [账号 ${idx}]`, "🚨 脚本执行异常", notifyMsg);
       } else {
         console.log(`[账号 ${idx}] 💡 静默运行：提现金额不足 5 元 (当前: ${amount}元)，不弹窗。`);
       }
