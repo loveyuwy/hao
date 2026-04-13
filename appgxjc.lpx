@@ -4,6 +4,7 @@
 #!category=每日提醒
 
 [Argument]
+CRONE定时设置 = input, "0 8-23/1 * * *", tag=CRON定时设置, desc=每天运行的时间 (默认早上8点到晚上11点，每1个小时运行一次)
 应用1 = input, "Surge@com.nssurge.inc.surge-ios@⚡️@代理工具", tag=应用1, desc=格式: 名称@BundleID@图标@分类 (图标和分类选填，留空自动忽略)
 应用2 = input, "Shadowrocket@com.liguangming.Shadowrocket@🚀@代理工具", tag=应用2
 应用3 = input, "Loon@com.ruikq.decar@🎈@代理工具", tag=应用3
@@ -26,4 +27,4 @@
 应用20 = input, "", tag=应用20
 
 [Script]
-cron "15 7-23/1 * * *" script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/appjc.js, timeout=120, tag=应用更新检测, argument=[{应用1},{应用2},{应用3},{应用4},{应用5},{应用6},{应用7},{应用8},{应用9},{应用10},{应用11},{应用12},{应用13},{应用14},{应用15},{应用16},{应用17},{应用18},{应用19},{应用20}]
+cron {CRON定时设置} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/appjc.js, timeout=120, tag=应用更新检测, argument=[{应用1},{应用2},{应用3},{应用4},{应用5},{应用6},{应用7},{应用8},{应用9},{应用10},{应用11},{应用12},{应用13},{应用14},{应用15},{应用16},{应用17},{应用18},{应用19},{应用20}]
