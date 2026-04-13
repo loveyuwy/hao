@@ -1,7 +1,7 @@
 #!name=应用更新检测
 #!desc=查询App Store应用更新状态，支持多区并发查询，可自定义20个App参数。CRON定时设置: 每天运行的时间 (默认早上8点到晚上11点，每1个小时运行一次)\n\n⓶ 应用数据 (最高支持20个): \n格式: 名称@BundleID@图标@分类\n(注: 图标和分类为可选填项，不填则默认归为“未分类”)\n\n示例1 (完整版): 微信@com.tencent.xin@💬@社交应用\n示例2 (极简版): Surge@com.nssurge.inc.surge-ios\n\n请在上面按需填入应用信息，留空的参数槽会自动忽略。\n脚本代码最底部有图标可供复制。
 #!author=〈ザㄩメ火华
-#!icon =https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/PNG图像.png
+#!icon =https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/App%20Store.png
 
 [Argument]
 CRON定时设置 = input, "0 8-23/1 * * *", tag=CRON定时设置, desc=每天运行的时间 (默认早上8点到晚上11点，每1个小时运行一次)
