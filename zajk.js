@@ -103,7 +103,7 @@ function runTask(token, idx) {
 
       if (amount >= 5) {
         console.log(`[账号 ${idx}] 🔔 触发弹窗：金额达标 (${amount}元 >= 5元)`);
-        $.notify(`🏥 众安健康 [账号 ${idx}]`, `💎 可提现金额达标: ${amount} 元`, `✨ 快去提现吧！\n\n${notifyMsg}`);
+        $.notify(`🏥 众安健康 [账号 ${idx}]`, `💎 可提现金额达标: ${amount} 元`, `✨ 快去提现吧！\n${notifyMsg}`);
       } else if (notifyMsg.includes("🚫") || notifyMsg.includes("📡") || notifyMsg.includes("📭")) {
         console.log(`[账号 ${idx}] 🔔 触发弹窗：脚本执行异常`);
         $.notify(`🏥 众安健康 [账号 ${idx}]`, "🚨 脚本执行异常", notifyMsg);
