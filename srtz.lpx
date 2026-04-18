@@ -15,4 +15,4 @@ CRONEXP=input,0 9 * * *,tag=CRONEXP, desc=CRONEXP
 生日数据10=input,"",tag=生日数据10, desc=生日数据10
 
 [Script]
-cron {CRON定时设置} script-path= https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/srts.js, timeout=120, tag= 生日提醒, argument=[{生日数据1},{生日数据2},{生日数据3},{生日数据4},{生日数据5},{生日数据6},{生日数据7},{生日数据8},{生日数据9},{生日数据10}] &advance={提前天数}
+cron {CRON定时设置} script-path= https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/srts.js, timeout=120, tag= 生日提醒, argument=[{生日数据1},{生日数据2},{生日数据3},{生日数据4},{生日数据5},{生日数据6},{生日数据7},{生日数据8},{生日数据9},{生日数据10}] advance={提前天数}
