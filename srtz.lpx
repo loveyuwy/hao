@@ -1,0 +1,18 @@
+#!name=生日提醒助手
+#!desc=支持农历/公历，可设置提前 N 天通知。
+#!icon=https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1039.png
+#!tag=每日提醒
+#!arguments-desc=[配置参数]\n\n⓵ CRON定时设置: 每天运行的时间 (默认9点)\n\n⓶ 提前天数: 设置提前几天开始提醒 (例如填3，则生日倒计时3天、2天、1天都会通知)\n\n⓷ 生日数据: \n格式: 名字@类型@日期\n类型: 0=公历, 1=农历\n日期: MM-DD\n多人用分号";"隔开\n示例: 老婆@1@10-13或，老婆@1@10-13;妈妈@0@05-20
+
+[Argument]
+CRONEXP=input,0 9 * * *,tag=CRONEXP, desc=CRONEXP
+提前天数=input,1,tag=提前天数, desc=提前天数
+生日数据1=input,老婆@1@10-13,tag=生日数据1, desc=生日数据1
+生日数据2=input," ,生日数据3:,tag=生日数据2, desc=生日数据2
+生日数据4=input," ,生日数据5:,tag=生日数据4, desc=生日数据4
+生日数据6=input," ,生日数据7:,tag=生日数据6, desc=生日数据6
+生日数据8=input," ,生日数据9:,tag=生日数据8, desc=生日数据8
+生日数据10=input,"",tag=生日数据10, desc=生日数据10
+
+[Script]
+cron {CRON定时设置} script-path= https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/srts.js, timeout=120, tag= 生日提醒, argument=[{生日数据1},{生日数据2},{生日数据3},{生日数据4},{生日数据5},{生日数据6},{生日数据7},{生日数据8},{生日数据9},{生日数据10}] &advance={提前天数}
