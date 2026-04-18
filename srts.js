@@ -1,5 +1,5 @@
 /**
- * 生日提醒助手 - 通用适配版 (支持特殊横线识别)
+ * 生日提醒助手 - 通用适配版 (v3)
  * 适配 Surge: argument=info={{{数据}}};... &advance={{{天数}}}
  * 适配 Loon: argument=[{数据1},{数据2},...] advance={天数}
  */
@@ -61,19 +61,30 @@ const $ = new Env("生日提醒");
     let rawArgs = (typeof $argument !== 'undefined') ? $argument : forcedConfig;
     if (!rawArgs) return;
 
-    // --- 解析逻辑 ---
+    // 1. 提取提前天数
     let advanceDays = defaultAdvance;
     let advMatch = rawArgs.match(/advance[=:](\d+)/i);
     if (advMatch) advanceDays = parseInt(advMatch[1]);
 
-    let dataPart = rawArgs.replace(/advance[=:]\d+/i, "")
-                          .replace(/info=/i, "")
-                          .replace(/[\[\]]/g, "")
-                          .trim();
+    // 2. 核心：全局清洗生日数据
+    // 先移除 advance 部分和 info= 前缀，再去掉 Loon 的方括号，最后去掉所有可能的双引号/单引号
+    let cleanData = rawArgs.replace(/advance[=:]\d+/i, "")
+                           .replace(/info=/i, "")
+                           .replace(/[\[\]]/g, "")
+                           .replace(/["']/g, "") // 这一步关键：统一去掉所有引号
+                           .trim();
     
-    let birthLines = dataPart.split(/[;,]/).map(s => s.trim()).filter(s => s.includes('@'));
+    // 按分号或逗号切分，并过滤掉空数据和不带@的无效行
+    let birthLines = cleanData.split(/[;,]/)
+                               .map(s => s.trim())
+                               .filter(s => s.includes('@'));
 
     console.log(`🔔 解析配置: [提前 ${advanceDays} 天提醒] | 有效条数: ${birthLines.length}`);
+
+    if (birthLines.length === 0) {
+        console.log("⚠️ 无法识别生日数据。接收到的清洗后内容为: " + cleanData);
+        return;
+    }
 
     const notifyArr = [];
     const today = new Date();
@@ -92,12 +103,11 @@ const $ = new Env("生日提醒");
         for (let line of birthLines) {
             let parts = line.split('@');
             if (parts.length < 3) continue;
+            
             let name = parts[0];
             let type = parts[1];
-            // --- 关键修改：加入特殊字符替换 ---
-            let date = parts[2].replace(/"/g, '')
-                               .replace(/[\uff0d\u2212\u2014\u2013\.\/]/g, '-') // 将各种横线、点、斜杠统一转为标准减号
-                               .trim();
+            // 再次兼容各种特殊横线
+            let date = parts[2].replace(/[\uff0d\u2212\u2014\u2013\.\/]/g, '-').trim();
             
             let isMatch = false;
             let typeDesc = "";
