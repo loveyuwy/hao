@@ -4,107 +4,155 @@ const $ = new Env("🏥 众安健康");
   console.log("\n================= 🚀 众安健康 开始执行 =================");
   let tokens = [];
   
-  // 1. 详细打印参数，方便排查
   if (typeof $argument !== "undefined" && $argument) {
-    let argStr = $argument.trim();
-    console.log(`[环境检查] 原始参数内容: ${argStr}`);
-
-    if (argStr.startsWith("[") && argStr.endsWith("]")) {
-      console.log(`[解析模式] 检测到 Loon 列表格式`);
-      tokens = argStr.substring(1, argStr.length - 1)
-        .split(",")
-        .map(t => t.trim().replace(/['" ]/g, ""))
-        // 过滤掉：空字符串、未填写的占位符、以及 Loon 默认生成的 {TOKENx}
-        .filter(t => t !== "" && !t.includes("{TOKEN") && !t.includes("input"));
+    console.log(`[环境检查] 成功获取到 $argument，开始解析...`);
+    
+    // 判断是否为 Loon 的数组格式 (以 '[' 开头)
+    if ($argument.trim().startsWith("[")) {
+      console.log(`[解析模式] 检测到 Loon 数组格式参数`);
+      // 移除首尾的 '[' 和 ']'，按逗号分割
+      const raw = $argument.trim().replace(/^\[|\]$/g, "");
+      tokens = raw.split(",")
+        .map(t => t.trim().replace(/['"`\s]/g, "")) // 去除引号、空格
+        .filter(t => t !== "");
     } else {
-      console.log(`[解析模式] 检测到标准分隔符 (#) 格式`);
-      tokens = argStr.split("#")
+      console.log(`[解析模式] 检测到 Surge 格式参数 (使用 # 分隔)`);
+      tokens = $argument.split("#")
         .map(t => t.trim().replace(/['" ]/g, ""))
         .filter(t => t !== "");
     }
   } else {
-    console.log(`[环境检查] 未获取到 $argument 参数`);
+    console.log(`[环境检查] 未获取到 $argument 或其值为空！`);
   }
 
-  // 2. 如果没解析到 Token，给个提示并结束
   if (tokens.length === 0) {
-    console.log(`[配置错误] 解析后未发现有效 Token！`);
-    console.log(`💡 请检查 Loon 插件设置中的 TOKEN1-5 是否已填入内容。`);
-    // 延迟 500ms 确保日志在 Loon 中能打印出来
-    await new Promise(r => setTimeout(r, 500));
+    console.log(`[配置错误] 未检测到任何 Token，请在模块/重写设置中填入参数。`);
+    $.notify("🏥 众安健康", "❌ 配置错误", "请先在模块设置中填入至少一个 Token");
     $.done();
     return;
   }
 
   console.log(`[任务准备] 解析成功，检测到 ${tokens.length} 个账号，开始并发执行...`);
 
-  const startTime = Date.now();
-  const tasks = tokens.map((token, i) => runTask(token, i + 1));
+  const tasks = tokens.map((token, i) => {
+    const accountIdx = i + 1;
+    return runTask(token, accountIdx).catch(e => {
+      console.log(`❌ [账号 ${accountIdx}] 发生未捕获异常: ${e.message || e}`);
+    });
+  });
 
   await Promise.all(tasks);
 
-  console.log(`\n================= 🎉 执行完毕 (耗时: ${(Date.now() - startTime) / 1000}s) =================`);
-  
-  // 强制给 Loon 留一点刷日志的时间
-  setTimeout(() => { $.done(); }, 500);
+  console.log(`\n================= 🎉 众安健康 执行完毕 =================`);
+  $.done();
 })();
 
+/**
+ * 核心任务逻辑
+ */
 function runTask(token, idx) {
   return new Promise((resolve) => {
-    const start = Date.now();
+    console.log(`\n▶️ [账号 ${idx}] 开始处理...`);
     const url = `https://api.iosxx.cn/zajkcx.php?token=${token}`;
     
-    // Loon/Surge 统一使用 $httpClient
-    $.get({ url, timeout: 5000 }, (err, resp, data) => {
-      const elapsed = (Date.now() - start) / 1000;
-      let notifyMsg = "";
+    const safeUrl = url.replace(/(token=)(.{5}).*(.{5})/, "$1$2***$3");
+    console.log(`[账号 ${idx}] 发起请求: ${safeUrl}`);
 
+    const headers = {
+      "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    };
+
+    $.get({ url, headers, timeout: 5000 }, (err, resp, data) => {
+      let notifyMsg = "";
+      
       if (err) {
-        console.log(`[账号 ${idx}] ❌ 请求失败 (${elapsed}s): ${JSON.stringify(err)}`);
-        notifyMsg = `📡 网络请求失败`;
+        console.log(`[账号 ${idx}] ❌ 网络请求失败: ${JSON.stringify(err)}`);
+        notifyMsg = `📡 网络请求超时或失败\n${JSON.stringify(err)}`;
       } else {
         const statusCode = resp ? (resp.status || resp.statusCode) : '未知';
-        if (statusCode == 200 && data) {
+        console.log(`[账号 ${idx}] 🌐 请求完成，HTTP状态码: ${statusCode}`);
+        
+        if (statusCode === 400) {
+          console.log(`[账号 ${idx}] 🚫 Token无效 (HTTP 400)`);
+          notifyMsg = `🚫 Token 无效 (HTTP 400)`;
+        } else if (data) {
+          console.log(`[账号 ${idx}] 📦 原始返回数据片段: ${data.substring(0, 200).replace(/\n/g, ' ')}...`);
+          
           const lines = data.split('\n');
-          notifyMsg = lines.filter(line => /账号|奖励金|提现|金额|📝|✅|💰/.test(line)).join('\n');
+          let start = -1, end = -1;
+          for (let i = 0; i < lines.length; i++) if (lines[i].includes("📝 任务处理结果")) start = i;
+          for (let i = lines.length - 1; i >= 0; i--) if (lines[i].includes("💰 累计活动奖金")) { end = i; break; }
+
+          if (start !== -1 && end !== -1) {
+            notifyMsg = lines.slice(start, end + 1).join('\n');
+            console.log(`[账号 ${idx}] ✂️ 成功截取关键通知文本。`);
+          } else {
+            console.log(`[账号 ${idx}] ⚠️ 未匹配到设定的起始/结束标记，尝试回退解析方式。`);
+            notifyMsg = lines.filter(line => /📝|✅|🎁|💰|---/.test(line)).join('\n') || data.substring(0, 100);
+          }
         } else {
-          notifyMsg = `🚫 接口异常 (状态码: ${statusCode})`;
+          console.log(`[账号 ${idx}] 📭 接口返回数据为空(data is null/undefined)`);
+          notifyMsg = `📭 接口返回数据为空`;
         }
       }
 
-      console.log(`[账号 ${idx}] 解析结果 (${elapsed}s):\n${notifyMsg}`);
+      console.log(`[账号 ${idx}] 🧾 最终解析文本:\n${notifyMsg}`);
 
       let amount = 0;
-      const amountMatch = notifyMsg.match(/(?:可提现金额|金额)[:：]\s*([\d.]+)/);
-      if (amountMatch) amount = parseFloat(amountMatch[1]);
+      const withdrawMatch = notifyMsg.match(/(?:可提现金额)[:：]\s*([\d.]+)/);
+      const amountMatch = notifyMsg.match(/(?:奖金|提现|金额)[:：]\s*([\d.]+)/);
+      
+      if (withdrawMatch) {
+        amount = parseFloat(withdrawMatch[1]);
+        console.log(`[账号 ${idx}] 🔍 正则匹配到 [可提现金额]: ${amount}`);
+      } else if (amountMatch) {
+        amount = parseFloat(amountMatch[1]);
+        console.log(`[账号 ${idx}] 🔍 正则备用匹配到 [金额]: ${amount}`);
+      } else {
+        console.log(`[账号 ${idx}] 🔍 正则未匹配到任何金额数据。`);
+      }
 
       if (amount >= 5) {
-        $.notify(`🏥 众安 [账号 ${idx}]`, `💎 可提现: ${amount} 元`, notifyMsg);
+        console.log(`[账号 ${idx}] 🔔 触发弹窗：金额达标 (${amount}元 >= 5元)`);
+        $.notify(`🏥 众安健康 [账号 ${idx}]`, `💎 可提现金额达标: ${amount} 元`, `✨ 快去提现吧！\n${notifyMsg}`);
+      } else if (notifyMsg.includes("🚫") || notifyMsg.includes("📡") || notifyMsg.includes("📭")) {
+        console.log(`[账号 ${idx}] 🔔 触发弹窗：脚本执行异常`);
+        $.notify(`🏥 众安健康 [账号 ${idx}]`, "🚨 脚本执行异常", notifyMsg);
+      } else {
+        console.log(`[账号 ${idx}] 💡 静默运行：提现金额不足 5 元 (当前: ${amount}元)，不弹窗。`);
       }
+      
       resolve();
     });
   });
 }
 
 function Env(name) {
-  const isSurge = typeof $notification !== "undefined" && typeof $httpClient !== "undefined" && typeof $loon === "undefined";
-  const isLoon = typeof $loon !== "undefined" || (typeof $httpClient !== "undefined" && !isSurge);
+  const isSurge = typeof $httpClient !== "undefined";
   const isQuanX = typeof $task !== "undefined";
-
   return {
     name,
-    notify: (t, s, m) => {
-      if (isSurge || isLoon) $notification.post(t, s, m);
-      if (isQuanX) $notify(t, s, m);
+    notify: (title, subtitle, message) => {
+      if (isSurge) $notification.post(title, subtitle, message);
+      if (isQuanX) $notify(title, subtitle, message);
     },
-    get: (opts, cb) => {
-      if (isSurge || isLoon) $httpClient.get(opts, cb);
+    get: (options, callback) => {
+      if (isSurge) $httpClient.get(options, callback);
       if (isQuanX) {
-        if (typeof opts == "string") opts = { url: opts };
-        opts["method"] = "GET";
-        $task.fetch(opts).then(r => { r["status"] = r.statusCode; cb(null, r, r.body); }, e => cb(e.error, null, null));
+        if (typeof options == "string") options = { url: options };
+        options["method"] = "GET";
+        $task.fetch(options).then(
+          response => {
+            response["status"] = response.statusCode;
+            callback(null, response, response.body);
+          },
+          reason => callback(reason.error, null, null)
+        );
       }
     },
-    done: (v) => { if (typeof $done !== "undefined") $done(v); }
+    done: (val) => {
+      if (typeof $done !== "undefined") $done(val);
+    }
   };
 }
