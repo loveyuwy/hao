@@ -3,100 +3,61 @@ const $ = new Env("🏥 众安健康");
 (async () => {
   console.log("\n================= 🚀 众安健康 开始执行 =================");
   let tokens = [];
-  
-  // 调试：输出原始 $argument 的类型和内容
-  console.log(`[环境检查] $argument 类型: ${typeof $argument}`);
-  console.log(`[环境检查] $argument 原始值: ${JSON.stringify($argument)}`);
-  
-  if (typeof $argument !== "undefined" && $argument !== null && $argument !== "") {
-    let rawArg = $argument;
-    
-    // 如果传入的是对象（非字符串），尝试提取 tokens
-    if (typeof rawArg === "object") {
-      console.log(`[参数解析] $argument 是对象类型，尝试提取数组或键值...`);
-      if (Array.isArray(rawArg)) {
-        tokens = rawArg.map(t => String(t).trim()).filter(t => t !== "");
-        console.log(`[参数解析] 识别为数组对象，解析出 ${tokens.length} 个 Token。`);
-      } else {
-        // 对象形式可能为 {TOKEN1:"xxx", TOKEN2:"yyy"}，提取值
-        const values = Object.values(rawArg).filter(v => v && String(v).trim() !== "");
-        if (values.length > 0) {
-          tokens = values.map(v => String(v).trim());
-          console.log(`[参数解析] 识别为对象，提取出 ${tokens.length} 个 Token。`);
-        } else {
-          console.log(`[参数解析] 对象内无有效 Token 值。`);
-        }
-      }
+
+  if (typeof $argument !== "undefined" && $argument) {
+    console.log(`[环境检查] 成功获取到 $argument，开始解析...`);
+
+    // 1. 如果 $argument 本身已经是数组，直接使用（某些环境下可能传入数组）
+    if (Array.isArray($argument)) {
+      tokens = $argument
+        .map(t => String(t).trim())
+        .filter(t => t !== "" && t !== "null" && t !== "undefined");
+      console.log(`[参数解析] $argument 为数组类型，直接获取 ${tokens.length} 个 Token。`);
     } else {
-      // 字符串处理
-      rawArg = String(rawArg).trim();
-      console.log(`[参数解析] $argument 是字符串，长度: ${rawArg.length}`);
-      
-      // 检测是否为 [object Object] 这种无效字符串
-      if (rawArg === "[object Object]") {
-        console.log(`[参数错误] 检测到字符串 "[object Object]"，说明插件参数替换异常。`);
-        console.log(`[参数错误] 请检查 Loon 插件中 argument 的写法，正确格式应为: [{TOKEN1},{TOKEN2},{TOKEN3}]`);
-        $.notify("🏥 众安健康", "❌ 参数格式错误", "插件参数替换异常，请检查配置格式。");
-        $.done();
-        return;
-      }
-      
-      // 尝试 JSON 解析 (Loon 正常情况应为 ["token1","token2"])
+      const rawArg = String($argument).trim();
+      console.log(`[参数解析] 原始参数字符串: ${rawArg.substring(0, 100)}...`);
+
+      // 2. 尝试 JSON 数组格式（Loon 推荐格式）
       if (rawArg.startsWith("[") && rawArg.endsWith("]")) {
         try {
           const parsed = JSON.parse(rawArg);
           if (Array.isArray(parsed)) {
-            tokens = parsed.map(t => String(t).trim()).filter(t => t !== "");
-            console.log(`[参数解析] JSON 数组解析成功，提取 ${tokens.length} 个 Token。`);
+            tokens = parsed
+              .map(t => String(t).trim())
+              .filter(t => t !== "" && t !== "null" && t !== "undefined");
+            console.log(`[参数解析] 识别为 Loon JSON 数组格式，解析出 ${tokens.length} 个 Token。`);
           } else {
-            console.log(`[参数解析] JSON 非数组，回退其他格式。`);
+            console.log(`[参数解析] JSON 非数组，回退至 Surge 格式。`);
+            tokens = rawArg.split("#")
+              .map(t => t.trim().replace(/['" ]/g, ""))
+              .filter(t => t !== "");
           }
         } catch (e) {
-          console.log(`[参数解析] JSON 解析失败: ${e.message}`);
-          // 尝试移除可能的外层引号再解析
-          try {
-            const unquoted = rawArg.slice(1, -1).split(",").map(s => s.trim().replace(/^['"]|['"]$/g, ""));
-            tokens = unquoted.filter(t => t !== "");
-            console.log(`[参数解析] 尝试按逗号分割去引号处理，提取 ${tokens.length} 个 Token。`);
-          } catch (e2) {
-            console.log(`[参数解析] 备用解析也失败: ${e2.message}`);
-          }
+          console.log(`[参数解析] JSON 解析失败 (${e.message})，回退至 Surge 格式。`);
+          tokens = rawArg.split("#")
+            .map(t => t.trim().replace(/['" ]/g, ""))
+            .filter(t => t !== "");
         }
-      }
-      
-      // 如果 JSON 方式没拿到，尝试 Surge 的 # 分割
-      if (tokens.length === 0 && rawArg.includes("#")) {
-        tokens = rawArg.split("#").map(t => t.trim().replace(/['" ]/g, "")).filter(t => t !== "");
+      } else {
+        // 3. Surge / QX 格式（# 分割）
+        tokens = rawArg.split("#")
+          .map(t => t.trim().replace(/['" ]/g, ""))
+          .filter(t => t !== "");
         console.log(`[参数解析] 识别为 Surge # 分割格式，解析出 ${tokens.length} 个 Token。`);
-      }
-      
-      // 最后尝试直接按逗号分割（兼容纯逗号列表）
-      if (tokens.length === 0 && rawArg.includes(",") && !rawArg.includes("#")) {
-        tokens = rawArg.split(",").map(t => t.trim().replace(/['" ]/g, "")).filter(t => t !== "");
-        console.log(`[参数解析] 尝试按逗号分割，解析出 ${tokens.length} 个 Token。`);
-      }
-      
-      // 如果仍然为空，则将整个字符串作为一个 token（可能是单账号）
-      if (tokens.length === 0) {
-        const singleToken = rawArg.replace(/['" ]/g, "");
-        if (singleToken) {
-          tokens = [singleToken];
-          console.log(`[参数解析] 未匹配到分隔符，将整个参数作为单个 Token 处理。`);
-        }
       }
     }
   } else {
-    console.log(`[环境检查] 未获取到有效的 $argument 值。`);
+    console.log(`[环境检查] 未获取到 $argument 或其值为空！`);
   }
 
   if (tokens.length === 0) {
-    console.log(`[配置错误] 解析后 Token 列表为空，请检查插件参数设置。`);
-    $.notify("🏥 众安健康", "❌ 配置错误", "未检测到任何有效 Token，请填写参数。");
+    console.log(`[配置错误] 未检测到任何 Token，请在模块/插件设置中填入参数。`);
+    $.notify("🏥 众安健康", "❌ 配置错误", "请先在设置中填入至少一个 Token");
     $.done();
     return;
   }
 
-  console.log(`[任务准备] 最终解析出 ${tokens.length} 个账号，开始并发执行...`);
+  console.log(`[任务准备] 解析成功，检测到 ${tokens.length} 个账号，开始并发执行...`);
 
   const tasks = tokens.map((token, i) => {
     const accountIdx = i + 1;
@@ -118,7 +79,7 @@ function runTask(token, idx) {
   return new Promise((resolve) => {
     console.log(`\n▶️ [账号 ${idx}] 开始处理...`);
     const url = `https://api.iosxx.cn/zajkcx.php?token=${token}`;
-    
+
     const safeUrl = url.replace(/(token=)(.{5}).*(.{5})/, "$1$2***$3");
     console.log(`[账号 ${idx}] 发起请求: ${safeUrl}`);
 
@@ -129,20 +90,20 @@ function runTask(token, idx) {
 
     $.get({ url, headers, timeout: 5000 }, (err, resp, data) => {
       let notifyMsg = "";
-      
+
       if (err) {
         console.log(`[账号 ${idx}] ❌ 网络请求失败: ${JSON.stringify(err)}`);
         notifyMsg = `📡 网络请求超时或失败\n${JSON.stringify(err)}`;
       } else {
         const statusCode = resp ? (resp.status || resp.statusCode) : '未知';
         console.log(`[账号 ${idx}] 🌐 请求完成，HTTP状态码: ${statusCode}`);
-        
+
         if (statusCode === 400) {
           console.log(`[账号 ${idx}] 🚫 Token无效 (HTTP 400)`);
           notifyMsg = `🚫 Token 无效 (HTTP 400)`;
         } else if (data) {
           console.log(`[账号 ${idx}] 📦 原始返回数据片段: ${data.substring(0, 200).replace(/\n/g, ' ')}...`);
-          
+
           const lines = data.split('\n');
           let start = -1, end = -1;
           for (let i = 0; i < lines.length; i++) if (lines[i].includes("📝 任务处理结果")) start = i;
@@ -166,7 +127,7 @@ function runTask(token, idx) {
       let amount = 0;
       const withdrawMatch = notifyMsg.match(/(?:可提现金额)[:：]\s*([\d.]+)/);
       const amountMatch = notifyMsg.match(/(?:奖金|提现|金额)[:：]\s*([\d.]+)/);
-      
+
       if (withdrawMatch) {
         amount = parseFloat(withdrawMatch[1]);
         console.log(`[账号 ${idx}] 🔍 正则匹配到 [可提现金额]: ${amount}`);
@@ -186,7 +147,7 @@ function runTask(token, idx) {
       } else {
         console.log(`[账号 ${idx}] 💡 静默运行：提现金额不足 5 元 (当前: ${amount}元)，不弹窗。`);
       }
-      
+
       resolve();
     });
   });
