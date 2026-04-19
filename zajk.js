@@ -6,9 +6,24 @@ const $ = new Env("🏥 众安健康");
   
   if (typeof $argument !== "undefined" && $argument) {
     console.log(`[环境检查] 成功获取到 $argument，开始解析...`);
-    tokens = $argument.split("#")
-      .map(t => t.trim().replace(/['" ]/g, ""))
-      .filter(t => t !== "");
+    
+    const argStr = $argument.trim();
+    
+    // 判断是否为 Loon 的 [t1,t2,t3] 格式
+    if (argStr.startsWith("[") && argStr.endsWith("]")) {
+      console.log(`[解析模式] 检测到 Loon 格式参数`);
+      tokens = argStr.substring(1, argStr.length - 1)
+        .split(",")
+        .map(t => t.trim().replace(/['" ]/g, ""))
+        .filter(t => t !== "");
+    } 
+    // 兼容原有的 Surge/QuanX # 分隔格式
+    else {
+      console.log(`[解析模式] 检测到标准分隔符 (#) 格式`);
+      tokens = argStr.split("#")
+        .map(t => t.trim().replace(/['" ]/g, ""))
+        .filter(t => t !== "");
+    }
   } else {
     console.log(`[环境检查] 未获取到 $argument 或其值为空！`);
   }
@@ -43,6 +58,7 @@ function runTask(token, idx) {
     console.log(`\n▶️ [账号 ${idx}] 开始处理...`);
     const url = `https://api.iosxx.cn/zajkcx.php?token=${token}`;
     
+    // 日志脱敏处理
     const safeUrl = url.replace(/(token=)(.{5}).*(.{5})/, "$1$2***$3");
     console.log(`[账号 ${idx}] 发起请求: ${safeUrl}`);
 
@@ -119,15 +135,18 @@ function runTask(token, idx) {
 function Env(name) {
   const isSurge = typeof $httpClient !== "undefined";
   const isQuanX = typeof $task !== "undefined";
+  const isLoon = typeof $loon !== "undefined";
   return {
     name,
     notify: (title, subtitle, message) => {
       if (isSurge) $notification.post(title, subtitle, message);
       if (isQuanX) $notify(title, subtitle, message);
+      if (isLoon) $notification.post(title, subtitle, message);
     },
     get: (options, callback) => {
-      if (isSurge) $httpClient.get(options, callback);
-      if (isQuanX) {
+      if (isSurge || isLoon) {
+        $httpClient.get(options, callback);
+      } else if (isQuanX) {
         if (typeof options == "string") options = { url: options };
         options["method"] = "GET";
         $task.fetch(options).then(
