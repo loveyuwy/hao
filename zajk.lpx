@@ -1,6 +1,6 @@
 #!name=VRKA 众安任务 (多账号版)
 #!desc=支持多账号。在参数中填入 Token，单个账号金额 > 5 元时弹窗提醒。\n\n[配置参数]\n⓵CRON定时: 运行时间\n\n⓶TOKENs: 分别填入各账号 Token，不填则跳过。
-#!icon=https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1059.png
+#!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zajk.png
 #!author=〈ザㄩメ火华
 
 [Argument]
