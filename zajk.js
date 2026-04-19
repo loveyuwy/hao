@@ -7,27 +7,43 @@ const $ = new Env("🏥 众安健康");
   if (typeof $argument !== "undefined" && $argument) {
     console.log(`[环境检查] 成功获取到 $argument，开始解析...`);
     
-    // 判断是否为 Loon 的数组格式 (以 '[' 开头)
-    if ($argument.trim().startsWith("[")) {
-      console.log(`[解析模式] 检测到 Loon 数组格式参数`);
-      // 移除首尾的 '[' 和 ']'，按逗号分割
-      const raw = $argument.trim().replace(/^\[|\]$/g, "");
-      tokens = raw.split(",")
-        .map(t => t.trim().replace(/['"`\s]/g, "")) // 去除引号、空格
-        .filter(t => t !== "");
+    const rawArg = String($argument).trim();
+    
+    // 判断是否为 JSON 数组格式 (Loon 风格)
+    if (rawArg.startsWith("[") && rawArg.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(rawArg);
+        if (Array.isArray(parsed)) {
+          tokens = parsed
+            .map(t => String(t).trim())
+            .filter(t => t !== "" && t !== "null" && t !== "undefined");
+          console.log(`[参数解析] 识别为 Loon JSON 数组格式，解析出 ${tokens.length} 个 Token。`);
+        } else {
+          console.log(`[参数解析] JSON 非数组，回退至 Surge 格式。`);
+          tokens = rawArg.split("#")
+            .map(t => t.trim().replace(/['" ]/g, ""))
+            .filter(t => t !== "");
+        }
+      } catch (e) {
+        console.log(`[参数解析] JSON 解析失败 (${e.message})，回退至 Surge 格式。`);
+        tokens = rawArg.split("#")
+          .map(t => t.trim().replace(/['" ]/g, ""))
+          .filter(t => t !== "");
+      }
     } else {
-      console.log(`[解析模式] 检测到 Surge 格式参数 (使用 # 分隔)`);
-      tokens = $argument.split("#")
+      // Surge 格式: token1#token2#token3
+      tokens = rawArg.split("#")
         .map(t => t.trim().replace(/['" ]/g, ""))
         .filter(t => t !== "");
+      console.log(`[参数解析] 识别为 Surge # 分割格式，解析出 ${tokens.length} 个 Token。`);
     }
   } else {
     console.log(`[环境检查] 未获取到 $argument 或其值为空！`);
   }
 
   if (tokens.length === 0) {
-    console.log(`[配置错误] 未检测到任何 Token，请在模块/重写设置中填入参数。`);
-    $.notify("🏥 众安健康", "❌ 配置错误", "请先在模块设置中填入至少一个 Token");
+    console.log(`[配置错误] 未检测到任何 Token，请在模块/插件设置中填入参数。`);
+    $.notify("🏥 众安健康", "❌ 配置错误", "请先在设置中填入至少一个 Token");
     $.done();
     return;
   }
