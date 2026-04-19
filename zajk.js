@@ -3,56 +3,19 @@ const $ = new Env("🏥 众安健康");
 (async () => {
   console.log("\n================= 🚀 众安健康 开始执行 =================");
   let tokens = [];
-
+  
   if (typeof $argument !== "undefined" && $argument) {
     console.log(`[环境检查] 成功获取到 $argument，开始解析...`);
-
-    // 1. 如果 $argument 本身已经是数组，直接使用（某些环境下可能传入数组）
-    if (Array.isArray($argument)) {
-      tokens = $argument
-        .map(t => String(t).trim())
-        .filter(t => t !== "" && t !== "null" && t !== "undefined");
-      console.log(`[参数解析] $argument 为数组类型，直接获取 ${tokens.length} 个 Token。`);
-    } else {
-      const rawArg = String($argument).trim();
-      console.log(`[参数解析] 原始参数字符串: ${rawArg.substring(0, 100)}...`);
-
-      // 2. 尝试 JSON 数组格式（Loon 推荐格式）
-      if (rawArg.startsWith("[") && rawArg.endsWith("]")) {
-        try {
-          const parsed = JSON.parse(rawArg);
-          if (Array.isArray(parsed)) {
-            tokens = parsed
-              .map(t => String(t).trim())
-              .filter(t => t !== "" && t !== "null" && t !== "undefined");
-            console.log(`[参数解析] 识别为 Loon JSON 数组格式，解析出 ${tokens.length} 个 Token。`);
-          } else {
-            console.log(`[参数解析] JSON 非数组，回退至 Surge 格式。`);
-            tokens = rawArg.split("#")
-              .map(t => t.trim().replace(/['" ]/g, ""))
-              .filter(t => t !== "");
-          }
-        } catch (e) {
-          console.log(`[参数解析] JSON 解析失败 (${e.message})，回退至 Surge 格式。`);
-          tokens = rawArg.split("#")
-            .map(t => t.trim().replace(/['" ]/g, ""))
-            .filter(t => t !== "");
-        }
-      } else {
-        // 3. Surge / QX 格式（# 分割）
-        tokens = rawArg.split("#")
-          .map(t => t.trim().replace(/['" ]/g, ""))
-          .filter(t => t !== "");
-        console.log(`[参数解析] 识别为 Surge # 分割格式，解析出 ${tokens.length} 个 Token。`);
-      }
-    }
+    tokens = $argument.split("#")
+      .map(t => t.trim().replace(/['" ]/g, ""))
+      .filter(t => t !== "");
   } else {
     console.log(`[环境检查] 未获取到 $argument 或其值为空！`);
   }
 
   if (tokens.length === 0) {
-    console.log(`[配置错误] 未检测到任何 Token，请在模块/插件设置中填入参数。`);
-    $.notify("🏥 众安健康", "❌ 配置错误", "请先在设置中填入至少一个 Token");
+    console.log(`[配置错误] 未检测到任何 Token，请在模块/重写设置中填入参数。`);
+    $.notify("🏥 众安健康", "❌ 配置错误", "请先在模块设置中填入至少一个 Token");
     $.done();
     return;
   }
@@ -79,7 +42,7 @@ function runTask(token, idx) {
   return new Promise((resolve) => {
     console.log(`\n▶️ [账号 ${idx}] 开始处理...`);
     const url = `https://api.iosxx.cn/zajkcx.php?token=${token}`;
-
+    
     const safeUrl = url.replace(/(token=)(.{5}).*(.{5})/, "$1$2***$3");
     console.log(`[账号 ${idx}] 发起请求: ${safeUrl}`);
 
@@ -90,20 +53,20 @@ function runTask(token, idx) {
 
     $.get({ url, headers, timeout: 5000 }, (err, resp, data) => {
       let notifyMsg = "";
-
+      
       if (err) {
         console.log(`[账号 ${idx}] ❌ 网络请求失败: ${JSON.stringify(err)}`);
         notifyMsg = `📡 网络请求超时或失败\n${JSON.stringify(err)}`;
       } else {
         const statusCode = resp ? (resp.status || resp.statusCode) : '未知';
         console.log(`[账号 ${idx}] 🌐 请求完成，HTTP状态码: ${statusCode}`);
-
+        
         if (statusCode === 400) {
           console.log(`[账号 ${idx}] 🚫 Token无效 (HTTP 400)`);
           notifyMsg = `🚫 Token 无效 (HTTP 400)`;
         } else if (data) {
           console.log(`[账号 ${idx}] 📦 原始返回数据片段: ${data.substring(0, 200).replace(/\n/g, ' ')}...`);
-
+          
           const lines = data.split('\n');
           let start = -1, end = -1;
           for (let i = 0; i < lines.length; i++) if (lines[i].includes("📝 任务处理结果")) start = i;
@@ -127,7 +90,7 @@ function runTask(token, idx) {
       let amount = 0;
       const withdrawMatch = notifyMsg.match(/(?:可提现金额)[:：]\s*([\d.]+)/);
       const amountMatch = notifyMsg.match(/(?:奖金|提现|金额)[:：]\s*([\d.]+)/);
-
+      
       if (withdrawMatch) {
         amount = parseFloat(withdrawMatch[1]);
         console.log(`[账号 ${idx}] 🔍 正则匹配到 [可提现金额]: ${amount}`);
@@ -147,7 +110,7 @@ function runTask(token, idx) {
       } else {
         console.log(`[账号 ${idx}] 💡 静默运行：提现金额不足 5 元 (当前: ${amount}元)，不弹窗。`);
       }
-
+      
       resolve();
     });
   });
