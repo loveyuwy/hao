@@ -4,9 +4,9 @@
 #!author=〈ザㄩメ火华
 
 [Argument]
-CRON定时设置=input,0 9 * * *,tag=CRON定时设置, desc=CRON定时设置
-提前天数=input,5,tag=提前天数, desc=提前天数
-生日数据1=input,老婆@1@10-13,tag=生日数据1, desc=生日数据1
+CRON定时设置=input,"0 9 * * *",tag=CRON定时设置, desc=CRON定时设置
+提前天数=input,"5",tag=提前天数, desc=提前天数
+生日数据1=input,"老婆@1@10-13",tag=生日数据1, desc=生日数据1
 生日数据2=input,"",tag=生日数据2, desc=生日数据2 
 生日数据3=input,"",tag=生日数据3, desc=生日数据3
 生日数据4=input,"",tag=生日数据4, desc=生日数据4 
