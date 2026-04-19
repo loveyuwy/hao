@@ -7,7 +7,9 @@
 CRON定时设置=input,"0 12 * * *",tag=CRON定时设置, desc=CRON定时设置
 TOKEN1=input,"",tag=TOKEN1, desc=TOKEN1
 TOKEN2=input,"",tag=TOKEN2, desc=TOKEN2
-TOKEN3=input,"",tag=TOKEN3, desc=TOKEN3 TOKEN4=input,"",tag=TOKEN4, desc=TOKEN4 TOKEN5=input,"",tag=TOKEN5, desc=TOKEN5
+TOKEN3=input,"",tag=TOKEN3, desc=TOKEN3 
+TOKEN4=input,"",tag=TOKEN4, desc=TOKEN4 
+TOKEN5=input,"",tag=TOKEN5, desc=TOKEN5
 
 [Script]
 cron {CRON定时设置} script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zajk.js, timeout=60, tag=众安任务, argument=[{TOKEN1},{TOKEN2},{TOKEN3},{TOKEN4},{TOKEN5}]
