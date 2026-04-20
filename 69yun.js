@@ -6,64 +6,113 @@ let rawArg = typeof $argument !== "undefined" ? $argument : "";
 let isSilent = false;
 const accounts = [];
 
-function parseLoonArray(argArray) {
-    if (!Array.isArray(argArray)) return false;
-    for (let i = 0; i < 5; i++) {
-        const val = argArray[i];
-        if (typeof val === 'string' && val.trim() !== '') {
-            let sep = val.includes(':') ? ':' : (val.includes(',') ? ',' : null);
-            if (sep) {
-                const [email, password] = val.split(sep).map(s => s.trim());
-                if (email && password) accounts.push({ email, password });
-            }
-        }
+// ------------------ 增强的参数解析（兼容 Surge / Loon）------------------
+function parseArgument(arg) {
+    // 1. 如果已经是数组（Surge 典型格式）
+    if (Array.isArray(arg)) {
+        parseArrayFormat(arg);
+        return;
     }
-    if (argArray.length >= 6) {
-        const silentVal = argArray[5];
-        if (typeof silentVal === 'string' && silentVal.trim() === '#') {
-            isSilent = true;
-        }
+
+    // 2. 如果是对象（Loon 传入的对象格式）
+    if (typeof arg === "object" && arg !== null) {
+        parseObjectFormat(arg);
+        return;
     }
-    return true;
+
+    // 3. 尝试 JSON 解析字符串（如 Surge 用数组字符串）
+    if (typeof arg === "string") {
+        let trimmed = arg.trim();
+        // 尝试解析 JSON 数组
+        if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+            try {
+                const arr = JSON.parse(trimmed);
+                if (Array.isArray(arr)) {
+                    parseArrayFormat(arr);
+                    return;
+                }
+            } catch (e) {}
+        }
+        // 尝试解析 JSON 对象
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            try {
+                const obj = JSON.parse(trimmed);
+                if (typeof obj === "object" && obj !== null) {
+                    parseObjectFormat(obj);
+                    return;
+                }
+            } catch (e) {}
+        }
+        // 普通字符串格式（如 Surge 的 # 分隔 + &silent=）
+        parseStringFormat(trimmed);
+    }
 }
 
-function parseSurgeString(argStr) {
-    let str = argStr;
+// 处理数组格式：["邮箱:密码1", "邮箱:密码2", ..., "静默标记"]
+function parseArrayFormat(arr) {
+    for (let i = 0; i < arr.length; i++) {
+        const val = arr[i];
+        if (typeof val !== "string") continue;
+        const trimmed = val.trim();
+        if (trimmed === "" || trimmed === "#") {
+            if (trimmed === "#") isSilent = true;
+            continue;
+        }
+        // 尝试分割邮箱密码
+        const sep = trimmed.includes(":") ? ":" : (trimmed.includes(",") ? "," : null);
+        if (sep) {
+            const [email, password] = trimmed.split(sep).map(s => s.trim());
+            if (email && password) accounts.push({ email, password });
+        }
+    }
+}
+
+// 处理对象格式：{"账号和密码1": "邮箱:密码1", "静默运行": "#", ...}
+function parseObjectFormat(obj) {
+    for (const [key, val] of Object.entries(obj)) {
+        if (typeof val !== "string") continue;
+        const trimmed = val.trim();
+        if (trimmed === "" || trimmed === "#") {
+            if (trimmed === "#") isSilent = true;
+            continue;
+        }
+        // 只要值包含 @ 且包含分隔符，就视为账号
+        if (trimmed.includes("@") && (trimmed.includes(":") || trimmed.includes(","))) {
+            const sep = trimmed.includes(":") ? ":" : ",";
+            const [email, password] = trimmed.split(sep).map(s => s.trim());
+            if (email && password) accounts.push({ email, password });
+        }
+    }
+}
+
+// 处理字符串格式："邮箱:密码1#邮箱:密码2 &silent=#"
+function parseStringFormat(str) {
+    // 提取 &silent= 参数
     const silentMatch = str.match(/&silent=([^&\s]*)/);
-    if (silentMatch) {
-        if (silentMatch[1].trim() === "#") isSilent = true;
+    if (silentMatch && silentMatch[1].trim() === "#") {
+        isSilent = true;
         str = str.replace(/&silent=[^&\s]*/, "").trim();
     }
-    if (!str) return false;
-    let parts = str.split('#').map(p => p.trim()).filter(p => p !== "");
-    const silentIndex = parts.findIndex(p => p.toLowerCase() === "silent");
-    if (silentIndex !== -1) {
-        isSilent = true;
-        parts.splice(silentIndex, 1);
-    }
+
+    // 按 # 分割账号，并过滤掉单独的 "silent" 标记
+    const parts = str.split("#").map(p => p.trim()).filter(p => p !== "");
     for (const part of parts) {
-        let sep = part.includes(':') ? ':' : (part.includes(',') ? ',' : null);
-        if (!sep) continue;
-        const [email, password] = part.split(sep).map(s => s.trim());
-        if (email && password) accounts.push({ email, password });
+        if (part.toLowerCase() === "silent") {
+            isSilent = true;
+            continue;
+        }
+        if (part.includes("@") && (part.includes(":") || part.includes(","))) {
+            const sep = part.includes(":") ? ":" : ",";
+            const [email, password] = part.split(sep).map(s => s.trim());
+            if (email && password) accounts.push({ email, password });
+        }
     }
-    return true;
 }
 
-if (rawArg) {
-    let parsed = false;
-    if (Array.isArray(rawArg)) {
-        parsed = parseLoonArray(rawArg);
-    } else if (typeof rawArg === 'string' && rawArg.trim().startsWith('[')) {
-        try {
-            const arr = JSON.parse(rawArg);
-            parsed = parseLoonArray(arr);
-        } catch (e) {}
-    }
-    if (!parsed && typeof rawArg === 'string') {
-        parseSurgeString(rawArg);
-    }
-}
+// 执行解析
+parseArgument(rawArg);
+
+// -----------------------------------------------------------------
 
 if (accounts.length === 0) {
     console.log("⚠️ 未检测到有效账号，脚本结束");
