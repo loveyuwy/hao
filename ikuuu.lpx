@@ -5,7 +5,7 @@
 #!arguments-desc=CRON定时设置: 签到脚本的 CRON 表达式\n ikuuu获取cookie开关: 填写 # 即可禁用Token捕获，清空则开启。
 
 [Argument]
-CRON定时设置=input,0 9 * * *,tag=CRON定时设置, desc=CRON定时设置
+CRON定时设置=input,"0 9 * * *",tag=CRON定时设置, desc=CRON定时设置
 iKuuu获取Cookie开关=input,"",tag=iKuuu获取Cookie开关, desc=iKuuu获取Cookie开关
 
 [Script]
