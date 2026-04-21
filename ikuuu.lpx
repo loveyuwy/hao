@@ -1,7 +1,7 @@
 #!name=iKuuu签到助手
 #!desc=集成了自动签到与Cookie获取。
 #!author=〈ザㄩメ火华
-#!icon=https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1095.png
+#!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/ikuuu.png
 #!arguments-desc=CRON定时设置: 签到脚本的 CRON 表达式\n ikuuu获取cookie开关: 填写 # 即可禁用Token捕获，清空则开启。
 
 [Argument]
