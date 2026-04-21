@@ -1,7 +1,3 @@
-/*
-69云多账号自动签到脚本 (兼容 Surge / Loon)
-*/
-
 const userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.2 Mobile/15E148 Safari/604.1";
 const loginUrl = "https://69yun69.com/auth/login";
 const checkinUrl = "https://69yun69.com/user/checkin";
@@ -10,7 +6,7 @@ let rawArg = typeof $argument !== "undefined" ? $argument : "";
 let isSilent = false;
 const accounts = [];
 
-// ------------------ 增强的参数解析 ------------------
+// ------------------ 参数解析 ------------------
 function parseArgument(arg) {
     if (Array.isArray(arg)) {
         parseArrayFormat(arg);
@@ -25,13 +21,19 @@ function parseArgument(arg) {
         if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
             try {
                 const arr = JSON.parse(trimmed);
-                if (Array.isArray(arr)) { parseArrayFormat(arr); return; }
+                if (Array.isArray(arr)) {
+                    parseArrayFormat(arr);
+                    return;
+                }
             } catch (e) {}
         }
         if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
             try {
                 const obj = JSON.parse(trimmed);
-                if (typeof obj === "object" && obj !== null) { parseObjectFormat(obj); return; }
+                if (typeof obj === "object" && obj !== null) {
+                    parseObjectFormat(obj);
+                    return;
+                }
             } catch (e) {}
         }
         parseStringFormat(trimmed);
@@ -39,10 +41,14 @@ function parseArgument(arg) {
 }
 
 function parseArrayFormat(arr) {
-    for (let val of arr) {
+    for (let i = 0; i < arr.length; i++) {
+        const val = arr[i];
         if (typeof val !== "string") continue;
         const trimmed = val.trim();
-        if (trimmed === "#") { isSilent = true; continue; }
+        if (trimmed === "" || trimmed === "#") {
+            if (trimmed === "#") isSilent = true;
+            continue;
+        }
         const sep = trimmed.includes(":") ? ":" : (trimmed.includes(",") ? "," : null);
         if (sep) {
             const [email, password] = trimmed.split(sep).map(s => s.trim());
@@ -55,7 +61,10 @@ function parseObjectFormat(obj) {
     for (const [key, val] of Object.entries(obj)) {
         if (typeof val !== "string") continue;
         const trimmed = val.trim();
-        if (trimmed === "#") { isSilent = true; continue; }
+        if (trimmed === "" || trimmed === "#") {
+            if (trimmed === "#") isSilent = true;
+            continue;
+        }
         if (trimmed.includes("@") && (trimmed.includes(":") || trimmed.includes(","))) {
             const sep = trimmed.includes(":") ? ":" : ",";
             const [email, password] = trimmed.split(sep).map(s => s.trim());
@@ -72,7 +81,10 @@ function parseStringFormat(str) {
     }
     const parts = str.split("#").map(p => p.trim()).filter(p => p !== "");
     for (const part of parts) {
-        if (part.toLowerCase() === "silent") { isSilent = true; continue; }
+        if (part.toLowerCase() === "silent") {
+            isSilent = true;
+            continue;
+        }
         if (part.includes("@") && (part.includes(":") || part.includes(","))) {
             const sep = part.includes(":") ? ":" : ",";
             const [email, password] = part.split(sep).map(s => s.trim());
@@ -83,7 +95,7 @@ function parseStringFormat(str) {
 
 parseArgument(rawArg);
 
-// ------------------ 核心逻辑 ------------------
+// -----------------------------------------------------------------
 
 if (accounts.length === 0) {
     console.log("⚠️ 未检测到有效账号，脚本结束");
@@ -95,7 +107,6 @@ function maskEmail(email) {
     return (name.length > 2 ? name[0] + "***" + name.slice(-1) : name[0] + "***") + "@" + domain;
 }
 
-// 登录函数
 async function performLogin(email, password) {
     const body = `email=${encodeURIComponent(email)}&passwd=${encodeURIComponent(password)}&code=`;
     let lastError;
@@ -104,7 +115,7 @@ async function performLogin(email, password) {
             return await new Promise((resolve, reject) => {
                 $httpClient.post({
                     url: loginUrl,
-                    header: {
+                    headers: {  // 💡 修复：将 header 改为了 headers 以兼容 Loon
                         "User-Agent": userAgent,
                         "Origin": "https://69yun69.com",
                         "Referer": loginUrl,
@@ -113,57 +124,69 @@ async function performLogin(email, password) {
                         "Accept": "application/json, text/javascript, */*; q=0.01"
                     },
                     body: body,
-                    timeout: 15
+                    timeout: 12
                 }, (error, response, data) => {
-                    if (error) return reject(error);
-                    if (!response) return reject("服务器无响应");
-                    if (response.status !== 200) return reject(`状态码: ${response.status}`);
+                    // 💡 修复：将 error 统一转为 Error 对象，防止 err.message 为 undefined
+                    if (error) return reject(error instanceof Error ? error : new Error(error));
+                    if (response.status !== 200) return reject(new Error(`状态码: ${response.status}`));
                     try {
                         const json = JSON.parse(data);
-                        if (json.ret !== 1) return reject(json.msg || '登录失败');
-                        // 兼容 Surge/Loon 的 Header 键名
+                        if (json.ret !== 1) return reject(new Error(json.msg || '登录失败'));
+                        
+                        // 💡 修复：兼容 Loon 可能将 header key 全小写的情况
                         const cookie = response.headers['Set-Cookie'] || response.headers['set-cookie'] || '';
                         resolve({ cookie: cookie, data: json });
                     } catch (e) {
-                        reject(`解析失败: ${e.message}`);
+                        reject(new Error(`解析失败: ${e.message}`));
                     }
                 });
             });
         } catch (err) {
             lastError = err;
             if (i === 0) {
-                console.log(`   ⏳ 登录重试中... (原因: ${err.message || err})`);
-                await new Promise(r => setTimeout(r, 1500));
+                console.log(`   ⏳ 登录失败 (${err.message || err})，1秒后重试...`);
+                await new Promise(r => setTimeout(r, 1000));
             }
         }
     }
     throw lastError;
 }
 
-// 签到函数
 async function performCheckin(cookie) {
-    return await new Promise((resolve, reject) => {
-        $httpClient.post({
-            url: checkinUrl,
-            header: {
-                "User-Agent": userAgent,
-                "Origin": "https://69yun69.com",
-                "Referer": "https://69yun69.com/user",
-                "X-Requested-With": "XMLHttpRequest",
-                "Cookie": cookie,
-                "Content-Length": "0"
-            },
-            timeout: 15
-        }, (error, response, data) => {
-            if (error) return reject(error);
-            if (response.status !== 200) return reject(`状态码: ${response.status}`);
-            try {
-                resolve(JSON.parse(data));
-            } catch (e) {
-                reject(`解析失败: ${e.message}`);
+    let lastError;
+    for (let i = 0; i <= 1; i++) {
+        try {
+            return await new Promise((resolve, reject) => {
+                $httpClient.post({
+                    url: checkinUrl,
+                    headers: {  // 💡 修复：将 header 改为了 headers
+                        "User-Agent": userAgent,
+                        "Origin": "https://69yun69.com",
+                        "Referer": "https://69yun69.com/user",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Cookie": cookie,
+                        "Content-Length": "0"
+                    },
+                    timeout: 12
+                }, (error, response, data) => {
+                    if (error) return reject(error instanceof Error ? error : new Error(error));
+                    if (response.status !== 200) return reject(new Error(`状态码: ${response.status}`));
+                    try {
+                        resolve(JSON.parse(data));
+                    } catch (e) {
+                        reject(new Error(`解析失败: ${e.message}`));
+                    }
+                });
+            });
+        } catch (err) {
+            lastError = err;
+            if (i === 0) {
+                console.log(`   ⏳ 签到失败 (${err.message || err})，1秒后重试...`);
+                await new Promise(r => setTimeout(r, 1000));
             }
-        });
-    });
+        }
+    }
+    throw lastError;
 }
 
 function handleResult(result, email) {
@@ -186,7 +209,6 @@ function handleResult(result, email) {
     throw new Error(result.msg || '未知签到错误');
 }
 
-// 主函数
 async function main() {
     console.log(`🚀 开始执行 69云多账号签到 | 共 ${accounts.length} 个账号 | 静默: ${isSilent}`);
     for (let i = 0; i < accounts.length; i++) {
@@ -199,17 +221,15 @@ async function main() {
             const checkinRes = await performCheckin(loginRes.cookie);
             handleResult(checkinRes, acc.email);
         } catch (err) {
-            const errorMsg = err.message || (typeof err === 'string' ? err : "未知错误");
-            console.log(`   ❌ 失败: ${errorMsg}`);
-            if (!isSilent) $notification.post("❌ 69云签到失败", masked, `错误: ${errorMsg}`);
+            // 💡 修复：增加备用兜底，万一错误对象依然不是 Error 类型也能正常打印
+            const errMsg = err.message || err || "未知网络错误";
+            console.log(`   ❌ 失败: ${errMsg}`);
+            if (!isSilent) $notification.post("❌ 69云签到失败", masked, `错误: ${errMsg}`);
         }
-        if (i < accounts.length - 1) await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 800));
     }
     console.log("\n✅ 所有账号处理完毕");
     $done();
 }
 
-main().catch(e => { 
-    console.log(`脚本运行异常: ${e.message || e}`); 
-    $done(); 
-});
+main().catch(e => { console.log(`脚本异常: ${e.stack || e}`); $done(); });
