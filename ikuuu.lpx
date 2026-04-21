@@ -1,5 +1,5 @@
 #!name=iKuuu签到助手
-#!desc=集成了自动签到与Cookie获取。https://ikuuu.win/user和https://ikuuu.fyi/user
+#!desc=集成了自动签到与Cookie获取。\n机场链接:\nhttps://ikuuu.win/user\nhttps://ikuuu.fyi/user
 #!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/ikuuu.png
 #!arguments-desc=CRON定时设置: 签到脚本的 CRON 表达式\n ikuuu获取cookie开关: 填写 # 即可禁用Token捕获，清空则开启。
