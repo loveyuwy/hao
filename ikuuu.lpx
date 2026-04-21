@@ -1,17 +1,18 @@
 #!name=iKuuu签到助手
-#!desc=集成了自动签到与Cookie获取。\n机场链接:https://ikuuu.win/user或https://ikuuu.fyi/user
+#!desc=集成了自动签到与Cookie获取。\n机场链接:https://ikuuu.win/user或https://ikuuu.fyi/user\n静默运行: 静默运行 (填 # 则静默不通知，留空则正常弹出通知)
 #!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/ikuuu.png
 #!arguments-desc=CRON定时设置: 签到脚本的 CRON 表达式\n ikuuu获取cookie开关: 填写 # 即可禁用Token捕获，清空则开启。
 
 [Argument]
 CRON定时设置=input,"0 9 * * *",tag=CRON定时设置, desc=CRON定时设置
+静默运行=input,1,tag=静默运行, desc=静默运行
 iKuuu获取Cookie开关=input,"",tag=iKuuu获取Cookie开关, desc=iKuuu获取Cookie开关
 
 [Script]
 http-request ^https:\/\/ikuuu\.(fyi|win)/user script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/ikuuu_auto.js, tag={iKuuu获取Cookie开关}iKuuu自动获取Cookie
 
-cron {CRON定时设置} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/ikuuu_auto.js, timeout=60, tag=ikuuu自动签到
+cron {CRON定时设置} script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/ikuuu_auto.js, timeout=60, tag=ikuuu自动签到, argument={静默运行}
 
 [MITM]
 hostname = ikuuu.win, ikuuu.fyi
