@@ -1,13 +1,7 @@
-/**
- * 69云多账号签到脚本 (Loon/Surge 兼容修复版)
- * 修复了 rawArg.includes is not a function 的异常
- */
-
 const userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.2 Mobile/15E148 Safari/604.1";
 const loginUrl = "https://69yun69.com/auth/login";
 const checkinUrl = "https://69yun69.com/user/checkin";
 
-// ------------------ 鲁棒的参数解析 ------------------
 let isSilent = false;
 let accounts = [];
 
@@ -18,15 +12,12 @@ function parseParams() {
     if (typeof arg === "string") {
         argStr = arg;
     } else if (typeof arg === "object" && arg !== null) {
-        // 如果是对象（Loon 常见情况），转为字符串处理或直接遍历
         argStr = JSON.stringify(arg);
-        // 特殊处理静默标记
         if (arg["silent"] === "#" || arg["静默"] === "#") isSilent = true;
     }
 
     if (argStr.includes("silent=#")) isSilent = true;
 
-    // 解析账号
     if (typeof arg === "string") {
         const parts = arg.replace("&silent=#", "").split("#").filter(p => p.trim() !== "");
         parts.forEach(p => {
@@ -37,7 +28,6 @@ function parseParams() {
             }
         });
     } else if (typeof arg === "object" && !Array.isArray(arg)) {
-        // 如果是 Loon 的 Key-Value 形式
         for (let key in arg) {
             let val = arg[key];
             if (typeof val === "string" && val.includes("@")) {
@@ -54,13 +44,12 @@ function parseParams() {
 parseParams();
 
 if (accounts.length === 0) {
-    console.log("⚠️ 未检测到有效账号，请检查脚本参数配置");
+    console.log("⚠️ 未检测到有效账号，脚本结束");
     $done();
 }
 
-// ------------------ 主执行逻辑 ------------------
 async function main() {
-    console.log(`🚀 开始执行 69云多账号签到 | 共 ${accounts.length} 个账号 | 静默: ${isSilent}`);
+    console.log(`🚀 开始执行 69云多账号签到 | 共 ${accounts.length} 个账号`);
     
     for (let i = 0; i < accounts.length; i++) {
         const acc = accounts[i];
@@ -68,20 +57,12 @@ async function main() {
         console.log(`\n🔹 [${i + 1}/${accounts.length}] 账号: ${maskedEmail}`);
         
         try {
-            console.log("🔐 正在登录...");
             const loginRes = await performLogin(acc.email, acc.password);
-            console.log("✅ 登录成功");
-            
-            console.log("📝 正在签到...");
             const checkinRes = await performCheckin(loginRes.cookie);
-            
             handleResult(checkinRes, acc.email);
-            
         } catch (err) {
             console.log(`❌ 失败: ${err.message}`);
-            if (!isSilent) {
-                $notification.post("69云签到失败 ❌", maskedEmail, err.message);
-            }
+            if (!isSilent) $notification.post("69云签到失败 ❌", maskedEmail, err.message);
         }
         
         if (i < accounts.length - 1) await new Promise(r => setTimeout(r, 2000));
@@ -91,7 +72,6 @@ async function main() {
     $done();
 }
 
-// ------------------ 网络请求模块 (克隆成功脚本的 Header) ------------------
 function performLogin(email, password) {
     const body = `email=${encodeURIComponent(email)}&passwd=${encodeURIComponent(password)}&code=`;
     return new Promise((resolve, reject) => {
@@ -108,9 +88,8 @@ function performLogin(email, password) {
             },
             body: body
         }, (error, response, data) => {
-            if (error) return reject(new Error(`请求错误: ${error}`));
+            if (error) return reject(new Error(error));
             if (response.status !== 200) return reject(new Error(`状态码: ${response.status}`));
-            
             try {
                 const res = JSON.parse(data);
                 if (res.ret !== 1) return reject(new Error(res.msg || "登录失败"));
@@ -136,7 +115,7 @@ function performCheckin(cookie) {
                 "Content-Length": "0"
             }
         }, (error, response, data) => {
-            if (error) return reject(new Error(`签到请求失败: ${error}`));
+            if (error) return reject(new Error(error));
             try {
                 resolve(JSON.parse(data));
             } catch (e) {
@@ -146,7 +125,6 @@ function performCheckin(cookie) {
     });
 }
 
-// ------------------ 工具模块 ------------------
 function handleResult(result, email) {
     const masked = maskEmail(email);
     if (result.ret === 0 && result.msg.includes("已经签到过了")) {
