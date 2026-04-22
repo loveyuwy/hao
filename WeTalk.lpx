@@ -1,6 +1,6 @@
 #!name=WeTalk 自动化签到+视频奖励
 #!desc=WeTalk 签到做任务白嫖国外手机号\n\nCRON−WeTalk:脚本运行时间(默认早上9点和晚上20点)
-#!icon=https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1022.png
+#!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/WeTalk.png
 
 
 [Argument]
