@@ -3,7 +3,7 @@
 #!icon=https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1022.png
 
 [Argument]
-CRON−WeTalk=input,0 9 * * *,tag=CRON−WeTalk, desc=CRON−WeTalk
+CRON−WeTalk=input,"0 9 * * *",tag=CRON−WeTalk, desc=CRON−WeTalk
 token获取=input,"",tag=token获取, desc=token获取
 
 [Script]
