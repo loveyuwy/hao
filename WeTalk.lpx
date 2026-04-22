@@ -1,5 +1,5 @@
 #!name=WeTalk 自动化签到+视频奖励
-#!desc=WeTalk 签到做任务白嫖国外手机号\ntoken获取控制开关：默认为空(开启)，在对应项填写 # 即可禁用该脚本。\n\nCRON−WeTalk:脚本运行时间(默认早上9点)
+#!desc=WeTalk 签到做任务白嫖国外手机号\n\nCRON−WeTalk:脚本运行时间(默认早上9点)
 #!icon=https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1022.png
 
 
