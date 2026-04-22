@@ -1,5 +1,5 @@
 #!name=iKuuu签到助手
-#!desc=集成了自动签到与Cookie获取。\n机场链接:https://ikuuu.win/user或https://ikuuu.fyi/user\n静默运行: 静默运行 (填 # 则静默不通知，留空则正常弹出通知)\nCRON定时设置: 签到脚本的 CRON 表达式（默认早上9点运行）\n ikuuu获取cookie开关: 填写 # 即可禁用Token捕获，清空则开启。
+#!desc=集成了自动签到与Cookie获取。\n机场链接:https://ikuuu.win/user或https://ikuuu.fyi/user\n静默运行: 静默运行 (填 # 则静默不通知，留空则正常弹出通知)\nCRON定时设置:运行时间（默认早上9点运行）\n ikuuu获取cookie开关: 填写 # 即可禁用Token捕获，清空则开启。
 #!author=〈ザㄩメ火华
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/ikuuu.png
 
