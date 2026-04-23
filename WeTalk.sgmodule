@@ -7,7 +7,7 @@
 [Script]
 {{{token获取}}}Wetalk_GetCookie = type=http-response,pattern=^https:\/\/api\.wetalkapp\.com\/app\/queryBalanceAndBonus,script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/WeTalk.js,requires-body=1,max-size=0,script-update-interval=0,timeout=60,binary-body-mode=0
 
-WeTalk_CheckIn = type=cron,cronexp= {{{CRON−WeTalk}}},timeout=60,script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/WeTalk.js
+WeTalk_CheckIn = type=cron,cronexp= "{{{CRON−WeTalk}}}",timeout=60,script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/WeTalk.js
 
 [MITM]
 hostname = %APPEND% api.wetalkapp.com
