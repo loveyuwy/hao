@@ -1,5 +1,3 @@
-const $ = new Env("🏥 众安健康");
-
 (async () => {
   let tokens = [];
   const arg = typeof $argument !== 'undefined' ? $argument : "";
@@ -23,14 +21,22 @@ const $ = new Env("🏥 众安健康");
     return;
   }
 
-  const tasks = tokens.map((token, i) => {
+  console.log(`🏥 众安健康: 检测到 ${tokens.length} 个账号，开始顺序执行...`);
+  for (let i = 0; i < tokens.length; i++) {
     const accountIdx = i + 1;
-    return runTask(token, accountIdx).catch(e => {
-      console.log(`❌ [账号 ${accountIdx}] 异常: ${e.message || e}`);
-    });
-  });
-
-  await Promise.all(tasks);
+    console.log(`\n--- 开始处理账号 [${accountIdx}] ---`);
+    try {
+      await runTask(tokens[i], accountIdx);
+    } catch (e) {
+      console.log(`❌ [账号 ${accountIdx}] 运行异常: ${e}`);
+    }
+    if (i < tokens.length - 1) {
+      const waitTime = Math.floor(Math.random() * 3000) + 2000;
+      console.log(`等待 ${waitTime/1000} 秒后继续...`);
+      await $.wait(waitTime);
+    }
+  }
+  
   $.done();
 })();
 
@@ -42,24 +48,33 @@ function runTask(token, idx) {
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     };
 
-    $.get({ url, headers, timeout: 9000 }, (err, resp, data) => {
+    $.get({ url, headers, timeout: 15000 }, (err, resp, data) => {
       let notifyMsg = "";
       if (err) {
-        notifyMsg = `📡 网络请求超时或失败`;
+        notifyMsg = `📡 网络请求失败: ${err}`;
+        console.log(`[账号 ${idx}] 错误: ${notifyMsg}`);
       } else {
         const statusCode = resp ? (resp.status || resp.statusCode) : '未知';
+        console.log(`[账号 ${idx}] 接口返回状态码: ${statusCode}`);
+        
         if (statusCode === 400) {
           notifyMsg = `🚫 Token 无效 (HTTP 400)`;
         } else if (data) {
+          // 打印原始数据到日志，方便排查
+          console.log(`[账号 ${idx}] 返回原始内容: \n${data}`);
+          
           const lines = data.split('\n');
           let start = -1, end = -1;
           for (let i = 0; i < lines.length; i++) if (lines[i].includes("📝 任务处理结果")) start = i;
           for (let i = lines.length - 1; i >= 0; i--) if (lines[i].includes("💰 累计活动奖金")) { end = i; break; }
+          
           if (start !== -1 && end !== -1) {
             notifyMsg = lines.slice(start, end + 1).join('\n');
           } else {
-            notifyMsg = lines.filter(line => /📝|✅|🎁|💰|---/.test(line)).join('\n') || data.substring(0, 100);
+            notifyMsg = lines.filter(line => /📝|✅|🎁|💰|---/.test(line)).join('\n') || data.substring(0, 200);
           }
+        } else {
+          notifyMsg = "⚠️ 接口返回内容为空";
         }
       }
 
@@ -69,10 +84,13 @@ function runTask(token, idx) {
       if (withdrawMatch) amount = parseFloat(withdrawMatch[1]);
       else if (amountMatch) amount = parseFloat(amountMatch[1]);
 
+      // --- 修改点 3: 只要运行了就记录日志，而不仅仅是达标才弹窗 ---
+      console.log(`[账号 ${idx}] 处理完毕，当前金额: ${amount} 元`);
+      
       if (amount >= 5) {
-        $.msg(`🏥 众安健康 [账号 ${idx}]`, `💎 可提现金额达标: ${amount} 元`, `✨ 快去提现吧！\n${notifyMsg}`);
-      } else if (notifyMsg.includes("🚫") || notifyMsg.includes("📡")) {
-        $.msg(`🏥 众安健康 [账号 ${idx}]`, "🚨 脚本执行异常", notifyMsg);
+        $.msg(`🏥 众安健康 [账号 ${idx}]`, `💎 可提现达标: ${amount} 元`, notifyMsg);
+      } else if (notifyMsg.includes("🚫") || notifyMsg.includes("📡") || notifyMsg.includes("失败")) {
+        $.msg(`🏥 众安健康 [账号 ${idx}]`, "🚨 脚本异常", notifyMsg);
       }
       resolve();
     });
