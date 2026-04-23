@@ -42,7 +42,7 @@ function runTask(token, idx) {
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     };
 
-    $.get({ url, headers, timeout: 5000 }, (err, resp, data) => {
+    $.get({ url, headers, timeout: 9000 }, (err, resp, data) => {
       let notifyMsg = "";
       if (err) {
         notifyMsg = `📡 网络请求超时或失败`;
