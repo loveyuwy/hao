@@ -4,5 +4,8 @@
 #!arguments-desc=[配置参数]\n\n⓵ CRON定时: 运行时间\n\n⓶ TOKENs: 分别填入各账号 Token，不填则跳过。
 #!arguments=CRON定时设置:"0 12 * * *",TOKEN1:"",TOKEN2:"",TOKEN3:"",TOKEN4:"",TOKEN5:""
 
+[Rule]
+DOMAIN-SUFFIX,iosxx.cn,DIRECT
+
 [Script]
 众安任务 = type=cron, cronexp="{{{CRON定时设置}}}", script-path=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zajk.js, wake-system=1, timeout=60, argument={{{TOKEN1}}}#{{{TOKEN2}}}#{{{TOKEN3}}}#{{{TOKEN4}}}#{{{TOKEN5}}}
