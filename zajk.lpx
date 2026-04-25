@@ -3,6 +3,9 @@
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zajk.png
 #!author=〈ザㄩメ火华
 
+[Rule]
+DOMAIN-SUFFIX,iosxx.cn,DIRECT
+
 [Argument]
 CRON定时设置=input,"0 12 * * *",tag=CRON定时设置, desc=CRON定时设置
 TOKEN1=input,"",tag=TOKEN1, desc=TOKEN1
