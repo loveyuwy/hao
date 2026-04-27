@@ -3,7 +3,7 @@ const storeKey = "tjg_products_cache";
 
 $httpClient.get(url, function(error, response, data) {
     if (error) {
-        console.log("天机馆监控请求失败: " + error);
+        console.log("天机观监控请求失败: " + error);
         $done();
         return;
     }
@@ -41,7 +41,7 @@ $httpClient.get(url, function(error, response, data) {
     if (!historyNames) {        $persistentStore.write(JSON.stringify(currentNames), storeKey);
         
         let content = products.map(formatProduct).join("\n\n");
-        $notification.post("🛍️ 天机馆监控 (首次运行)", `共发现 ${products.length} 个商品`, content);
+        $notification.post("🛍️ 天机观监控 (首次运行)", `共发现 ${products.length} 个商品`, content);
         console.log("首次运行，全量通知。");
 
     } else {
@@ -50,7 +50,7 @@ $httpClient.get(url, function(error, response, data) {
         if (newItems.length > 0) {            $persistentStore.write(JSON.stringify(currentNames), storeKey);
             
             let content = newItems.map(formatProduct).join("\n\n");
-            $notification.post("🛍️ 天机馆上新啦！", `新增了 ${newItems.length} 个商品`, content);
+            $notification.post("🛍️ 天机观上新啦！", `新增了 ${newItems.length} 个商品`, content);
             console.log("发现新商品名，已弹窗通知。");
         } else {            $persistentStore.write(JSON.stringify(currentNames), storeKey);
             console.log("没有新商品名，静默结束。");
