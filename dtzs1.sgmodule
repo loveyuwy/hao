@@ -4,7 +4,7 @@
 #!icon=https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/dtzs.png
 
 [Script]
-豆图助手 = type=http-response,pattern=^https:\/\/xckj\.xingcenkj\.com,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/dtzs.js,binary-body-mode=0,debug=1
+豆图助手 = type=http-response,pattern=^https?://(?:api2ltzsz\.xcmnq\.cn|xckj\.xingcenkj\.com)(?:/|$),requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/loveyuwy/huohua/refs/heads/main/dtzs.js,binary-body-mode=0,debug=1
 
 [MITM]
-hostname = %APPEND% xckj.xingcenkj.com
+hostname = %APPEND% xckj.xingcenkj.com, api2ltzsz.xcmnq.cn
