@@ -2,17 +2,6 @@
  * 中国移动（Quantumult X BoxJS 多卡适配版）
  * 功能：短信登录凭证捕获 / BoxJS 账号池同步 / 多账号话费与流量查询
  */
-[rewrite_local]
-# 扩大 MITM 匹配范围，捕获所有中国移动 App 的加密及登录请求
-^https?:\/\/(client\.app\.coc\.10086\.cn|10086\.online-cmcc\.cn)(:\d+)?\/(cache_server|biz-orange)\/ url script-request-body https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.js
-^https?:\/\/(client\.app\.coc\.10086\.cn|10086\.online-cmcc\.cn)(:\d+)?\/(cache_server|biz-orange)\/ url script-response-body https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.js
-
-[task_local]
-# 定时任务：自动从 BoxJS 读取账号并后台保活刷新（默认每 20 分钟）
-*/20 * * * * https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.js, tag=中国移动多卡同步, img-url=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/China_Mobile.png
-
-[mitm]
-hostname = client.app.coc.10086.cn, 10086.online-cmcc.cn, *.10086.cn
 
 'use strict';
 
