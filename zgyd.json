@@ -3,13 +3,26 @@
   "name": "中国移动多卡助手",
   "author": "Collaborator",
   "icon": "https://raw.githubusercontent.com/anker1209/icon/main/zgyd.png",
-  "repo": "",
+  "repo": "https://github.com/loveyuwy/hao",
+  "description": "中国移动多卡话费、流量、语音助手，支持 Surge/Loon/QX 多卡展示。",
   "apps": [
     {
       "id": "china.mobile.assistant",
       "name": "中国移动多卡助手",
       "author": "Collaborator",
-      "icon": "https://raw.githubusercontent.com/anker1209/icon/main/zgyd.png",
+      "repo": "https://github.com/loveyuwy/hao",
+      "icons": [
+        "https://raw.githubusercontent.com/anker1209/icon/main/zgyd.png"
+      ],
+      "description": "多账号移动话费与流量统计、小组件及面板数据同步。",
+      "script": "https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/cmcc.js",
+      "keys": [
+        "cm_datasource",
+        "cm_multi_datasource",
+        "cm_primary_phone",
+        "cm_params_enc",
+        "cm_cookie"
+      ],
       "settings": [
         {
           "id": "cm_accounts",
@@ -25,13 +38,6 @@
           "type": "number",
           "desc": "设置数据同步与保活的时间周期"
         }
-      ],
-      "datas": [
-        "cm_datasource",
-        "cm_multi_datasource",
-        "cm_primary_phone",
-        "cm_params_enc",
-        "cm_cookie"
       ]
     }
   ]
