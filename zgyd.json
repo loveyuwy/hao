@@ -4,27 +4,35 @@
   "author": "Collaborator",
   "icon": "https://raw.githubusercontent.com/anker1209/icon/main/zgyd.png",
   "repo": "",
-  "settings": [
+  "apps": [
     {
-      "id": "cm_accounts",
-      "name": "多账号配置列表",
-      "val": "大号#13800138000@小号#13800138001",
-      "type": "text",
-      "desc": "格式：备注#手机号，多个账号使用 @ 符号分隔"
-    },
-    {
-      "id": "cm_refresh_interval",
-      "name": "后台自动刷新间隔 (分钟)",
-      "val": "60",
-      "type": "number",
-      "desc": "设置数据同步与保活的时间周期"
+      "id": "china.mobile.assistant",
+      "name": "中国移动多卡助手",
+      "author": "Collaborator",
+      "icon": "https://raw.githubusercontent.com/anker1209/icon/main/zgyd.png",
+      "settings": [
+        {
+          "id": "cm_accounts",
+          "name": "多账号配置列表",
+          "val": "大号#13800138000@小号#13800138001",
+          "type": "text",
+          "desc": "格式：备注#手机号，多个账号使用 @ 符号分隔"
+        },
+        {
+          "id": "cm_refresh_interval",
+          "name": "后台自动刷新间隔 (分钟)",
+          "val": "60",
+          "type": "number",
+          "desc": "设置数据同步与保活的时间周期"
+        }
+      ],
+      "datas": [
+        "cm_datasource",
+        "cm_multi_datasource",
+        "cm_primary_phone",
+        "cm_params_enc",
+        "cm_cookie"
+      ]
     }
-  ],
-  "datas": [
-    "cm_datasource",
-    "cm_multi_datasource",
-    "cm_primary_phone",
-    "cm_params_enc",
-    "cm_cookie"
   ]
 }
