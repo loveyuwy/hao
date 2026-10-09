@@ -1,0 +1,14 @@
+function clearLocalCache() {
+  try {
+    const contents = fm.contentsDirectory(fm.documentsDirectory());
+    for (const file of contents) {
+      // 清理所有卡槽缓存、单卡缓存及配置文件
+      if (file.startsWith("cm_data_slot_") || file === "cm_datasource.json" || file === "cm_widget_config.json") {
+        fm.remove(fm.joinPath(fm.documentsDirectory(), file));
+      }
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
