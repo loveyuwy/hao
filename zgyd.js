@@ -1,11 +1,54 @@
 /**
- * 中国移动（Quantumult X BoxJS 多卡适配版）
- * 功能：短信登录凭证捕获 / BoxJS 账号池同步 / 多账号话费与流量查询
+ * 
+ * 
+中国移动（Quantumult X BoxJS ）
+功能：短信登录凭证捕获 / BoxJS 账号池同步 / 多账号话费与流量查询
+订阅boxjs:https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.json
+Quantumult X需在配置[task_local]里手动添加定时运行脚本
+[task_local]
+# 定时任务：自动从 BoxJS 读取账号并后台保活刷新（默认每 20 分钟）
+*/20 * * * * https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.js, tag=中国移动多卡同步, img-url=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/China_Mobile.png 
+[task_local]
+# 定时任务：自动从 BoxJS 读取账号并后台保活刷新（默认每 20 分钟）
+*/20 * * * * https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.js, tag=中国移动多卡同步, img-url=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/China_Mobile.png
  */
 
 'use strict';
 
 /* ==================== 1. 加解密基础库 ==================== */
+'use strict';
+
+const isQX = typeof $task !== 'undefined';
+const isLoon = typeof $loon !== 'undefined';
+const isSurge = typeof $httpClient !== 'undefined' && !isLoon;
+
+if (isQX) {
+  globalThis.$persistentStore = {
+    read: (key) => $prefs.valueForKey(key),
+    write: (val, key) => $prefs.setValueForKey(String(val), key)
+  };
+  globalThis.$httpClient = {
+    post: (options, callback) => {
+      const qxOpts = {
+        url: options.url,
+        method: 'POST',
+        headers: options.headers || {},
+        body: options.body || ''
+      };
+      if (options.timeout) qxOpts.timeout = options.timeout;
+      $task.fetch(qxOpts).then(
+        resp => {
+          resp.status = resp.statusCode;
+          callback(null, resp, resp.body);
+        },
+        err => callback(err.error, null, null)
+      );
+    }
+  };
+  globalThis.$notification = {
+    post: (title, subtitle, body) => $notify(title, subtitle, body)
+  };
+}
 
 function utf8Bytes(str) {
   const out = [];
@@ -283,47 +326,31 @@ const STORE = {
   xqen: 'cm_x_qen',
   loginUrl: 'cm_login_url',
   cookie: 'cm_cookie',
+  loginTs: 'cm_login_ts',
   loginHeaders: 'cm_login_headers',
+  refreshTs: 'cm_refresh_ts',
   multiDs: 'cm_multi_datasource',
   primaryPhone: 'cm_primary_phone',
   cardIndex: 'cm_card_index',
-  accounts: 'cm_accounts'
+  multiAuth: 'cm_multi_auth'
 };
 
-function getHeader(headers, name) {
-  if (!headers) return '';
-  const want = String(name).toLowerCase();
-  for (const k of Object.keys(headers)) {
-    if (String(k).toLowerCase() === want) {
-      const v = headers[k];
-      return Array.isArray(v) ? v.join('; ') : (v || '');
-    }
-  }
-  return '';
-}
-
-function qxRequest(options) {
-  return new Promise((resolve, reject) => {
-    const qxOpts = {
-      url: options.url,
-      headers: options.headers || {},
-      body: options.body || ''
-    };
-    $task.fetch(qxOpts).then(response => {
-      resolve({ status: response.statusCode, headers: response.headers, body: response.body });
-    }, reason => {
-      reject(reason);
+function parseArguments() {
+  const args = {};
+  if (typeof $argument !== 'undefined' && $argument) {
+    $argument.split('&').forEach((item) => {
+      const idx = item.indexOf('=');
+      if (idx !== -1) {
+        const k = item.slice(0, idx).trim();
+        const v = item.slice(idx + 1).trim();
+        args[k] = decodeURIComponent(v);
+      }
     });
-  });
+  }
+  return args;
 }
 
-const QXStore = {
-  read: (key) => $prefs.valueForKey(key),
-  write: (val, key) => $prefs.setValueForKey(val, key)
-};
-
-function parseAccounts() {
-  const accStr = QXStore.read(STORE.accounts) || '';
+function parseAccounts(accStr) {
   if (!accStr) return [];
   const rawList = accStr.split('@');
   const accounts = [];
@@ -338,7 +365,9 @@ function parseAccounts() {
       phone = parts[1].trim();
     }
     const match = phone.match(/\d{11}/);
-    if (match) accounts.push({ label, phone: match[0] });
+    if (match) {
+      accounts.push({ label, phone: match[0] });
+    }
   });
   return accounts;
 }
@@ -356,22 +385,58 @@ function randomDigits(n) {
   return s;
 }
 
-function isAutoLogin(url) {
-  if (/10086\.online-cmcc\.cn/.test(url)) return true;
-  return /client\.app\.coc\.10086\.cn/.test(url) && /\/biz-orange\/[A-Z]{2}\/.*(autoLogin|refreshSession)/.test(url);
+function getHeader(headers, name) {
+  if (!headers) return '';
+  const want = String(name).toLowerCase();
+  for (const k of Object.keys(headers)) {
+    if (String(k).toLowerCase() === want) {
+      const v = headers[k];
+      return Array.isArray(v) ? v.join('; ') : (v || '');
+    }
+  }
+  return '';
 }
 
-function handleRequestCapture() {
-  const url = $request.url || '';
-  const headers = $request.headers || {};
-  const xqen = String(getHeader(headers, 'x-qen') || '').trim();
+function httpRequest(options) {
+  return new Promise((resolve, reject) => {
+    $httpClient.post(options, (err, resp, body) => {
+      if (err) return reject(err);
+      resolve({ status: resp.status, headers: resp.headers, body });
+    });
+  });
+}
 
-  if (!isAutoLogin(url)) return;
-  if (!REQ_KEY[xqen]) return;
+function isAutoLogin(url) {
+  const hit = /10086\.online-cmcc\.cn/.test(url) || 
+             /client\.app\.coc\.10086\.cn\/(biz-orange|cache_server)\//.test(url);
+  return hit;
+}
+
+
+function handleRequestCapture() {
+  const url = ($request &&$request.url) || '';
+  console.log(`[抓包-请求拦截] 收到 URL: ${url}`);
+
+  const headers = ($request &&$request.headers) || {};
+  const xqen = String(getHeader(headers, 'x-qen') || '').trim();
+  console.log(`[抓包-请求拦截] x-qen: ${xqen}`);
+
+  if (!isAutoLogin(url)) {
+    console.log('[抓包-请求拦截] URL 未匹配 autoLogin 规则，放行');
+    return $done({});
+  }
+  if (!REQ_KEY[xqen]) {
+    console.log(`[抓包-请求拦截] x-qen (${xqen}) 不在支持列表，放行`);
+    return $done({});
+  }
 
   const body = $request.body;
-  if (!body || body.length < 16) return;
+  if (!body || body.length < 16) {
+    console.log('[抓包-请求拦截] 请求 Body 长度不足或为空，放行');
+    return $done({});
+  }
 
+  console.log(`[抓包-请求拦截] 开始尝试解密 Body (长度: ${body.length})...`);
   let plain = null, usedQen = null;
   const tryOrder = [xqen, '2', '12', '14'].filter((v, i, a) => REQ_KEY[v] && a.indexOf(v) === i);
   for (const q of tryOrder) {
@@ -380,49 +445,85 @@ function handleRequestCapture() {
       JSON.parse(p);
       plain = p;
       usedQen = q;
+      console.log(`[抓包-请求拦截] 使用 Qen ${q} 成功解密 Body`);
       break;
     } catch (e) {}
   }
 
-  if (!plain) return;
+  if (!plain) {
+    console.log('[抓包-请求拦截] 密钥尝试解密均失败，放行');
+    return $done({});
+  }
 
   try {
     const parsedObj = JSON.parse(plain);
     const autoPhone = (parsedObj.reqBody && parsedObj.reqBody.cellNum) || parsedObj.cellNum;
     if (autoPhone && /^\d{11}$/.test(autoPhone)) {
-      QXStore.write(autoPhone, STORE.primaryPhone);
-    }
-  } catch (e) {}
+      console.log(`[抓包-请求拦截] 提取到手机号: ${autoPhone}`);
+      $persistentStore.write(autoPhone, STORE.primaryPhone);
 
-  QXStore.write(body, STORE.paramsEnc);
-  QXStore.write(usedQen, STORE.xqen);
-  QXStore.write(url, STORE.loginUrl);
+      let multiAuth = {};
+      try { multiAuth = JSON.parse($persistentStore.read(STORE.multiAuth) || '{}'); } catch(e){}
+
+      const keep = {};
+      for (const k of Object.keys(headers)) {
+        if (/^(cookie|content-length|connection|accept-encoding)$/i.test(k)) continue;
+        keep[k] = Array.isArray(headers[k]) ? headers[k].join(', ') : String(headers[k]);
+      }
+
+      multiAuth[autoPhone] = {
+        paramsEnc: body,
+        xqen: usedQen,
+        loginUrl: url,
+        cookie: String(getHeader(headers, 'cookie') || '').trim(),
+        loginHeaders: JSON.stringify(keep),
+        loginTs: Date.now()
+      };
+      
+      $persistentStore.write(JSON.stringify(multiAuth), STORE.multiAuth);
+      $notification.post('中国移动', `捕获成功: ${autoPhone}`, '该账号的独立凭证已安全存储');
+      console.log(`[抓包-请求拦截] 账号 ${autoPhone} 凭证已存入独立池`);
+    } else {
+      console.log('[抓包-请求拦截] 未在 Body 中解析出 11 位手机号');
+    }
+  } catch (e) {
+    console.log(`[抓包-请求拦截] 解析 JSON 异常: ${e.message}`);
+  }
+
+  $persistentStore.write(body, STORE.paramsEnc);
+  $persistentStore.write(usedQen, STORE.xqen);$persistentStore.write(url, STORE.loginUrl);
 
   const cookie = String(getHeader(headers, 'cookie') || '').trim();
-  if (cookie) QXStore.write(cookie, STORE.cookie);
+  if (cookie) $persistentStore.write(cookie, STORE.cookie);
 
   const keep = {};
   for (const k of Object.keys(headers)) {
     if (/^(cookie|content-length|connection|accept-encoding)$/i.test(k)) continue;
-    keep[k] = String(headers[k]);
+    keep[k] = Array.isArray(headers[k]) ? headers[k].join(', ') : String(headers[k]);
   }
-  QXStore.write(JSON.stringify(keep), STORE.loginHeaders);
+  $persistentStore.write(JSON.stringify(keep), STORE.loginHeaders);$persistentStore.write(String(Date.now()), STORE.loginTs);
 
-  console.log('中国移动登录参数捕获成功');
+  console.log('[抓包-请求拦截] 捕获逻辑执行完毕，正常退出');
+  $done({});
 }
 
 function handleResponseCapture() {
-  const url = ($request &&$request.url) || '';
-  if (!isAutoLogin(url)) return;
+  const url = (typeof $request !== 'undefined' &&$request && $request.url) ?$request.url : '';
+  console.log(`[抓包-响应拦截] 收到 URL: ${url}`);
+  if (!isAutoLogin(url)) {
+    return $done({});
+  }
   const respHeaders = ($response &&$response.headers) || {};
   const setCookie = String(getHeader(respHeaders, 'set-cookie') || '').trim();
-  if (setCookie && QXStore.read(STORE.cookie) !== setCookie) {
-    QXStore.write(setCookie, STORE.cookie);
+  if (setCookie && $persistentStore.read(STORE.cookie) !== setCookie) {
+    console.log('[抓包-响应拦截] 捕获到新的 Set-Cookie，已更新');
+    $persistentStore.write(setCookie, STORE.cookie);
   }
+  $done({});
 }
 
-function buildQuery(params, kind, targetPhone) {
-  const cookie = QXStore.read(STORE.cookie) || '';
+function buildQuery(params, kind, targetPhone, authObj) {
+  const cookie = authObj ? authObj.cookie : ($persistentStore.read(STORE.cookie) || '');
   const ts = Date.now();
   const nonce = randomDigits(8);
   const pathname = kind === 'fee'
@@ -461,45 +562,107 @@ function buildQuery(params, kind, targetPhone) {
   };
 }
 
-function absorbSetCookie(headers) {
+function absorbSetCookie(headers, phone) {
   const sc = String(getHeader(headers, 'set-cookie') || '').trim();
-  if (sc && /JSESSIONID=/i.test(sc) && QXStore.read(STORE.cookie) !== sc) {
-    QXStore.write(sc, STORE.cookie);
+  if (sc && /JSESSIONID=/i.test(sc)) {
+    $persistentStore.write(sc, STORE.cookie);
+    if (phone) {
+      let multiAuth = {};
+      try { multiAuth = JSON.parse($persistentStore.read(STORE.multiAuth) || '{}'); } catch(e){}
+      if (multiAuth[phone]) {
+        multiAuth[phone].cookie = sc;
+        $persistentStore.write(JSON.stringify(multiAuth), STORE.multiAuth);
+      }
+    }
     return true;
   }
   return false;
 }
 
+async function autoRefreshSession(phone) {
+  let multiAuth = {};
+  try { multiAuth = JSON.parse($persistentStore.read(STORE.multiAuth) || '{}'); } catch(e){}
+  let auth = multiAuth[phone];
+
+  const url = auth ? auth.loginUrl : ($persistentStore.read(STORE.loginUrl) || '');
+  const body = auth ? auth.paramsEnc : ($persistentStore.read(STORE.paramsEnc) || '');
+  if (!url || !body) return false;
+  
+  const lastKey = auth ? `cm_refresh_ts_${phone}` : STORE.refreshTs;
+  const last = parseInt($persistentStore.read(lastKey) || '0', 10);
+  if (Date.now() - last < 10 * 60 * 1000) return false;
+  $persistentStore.write(String(Date.now()), lastKey);
+
+  let headers = {};
+  let headStr = auth ? auth.loginHeaders : ($persistentStore.read(STORE.loginHeaders) || '{}');
+  try { headers = JSON.parse(headStr); } catch (e) {}
+
+  if (!Object.keys(headers).some((k) => /^x-qen$/i.test(k))) headers['x-qen'] = auth ? auth.xqen : ($persistentStore.read(STORE.xqen) || '2');
+  if (!Object.keys(headers).some((k) => /^content-type$/i.test(k))) headers['Content-Type'] = 'application/json';
+  if (!Object.keys(headers).some((k) => /^user-agent$/i.test(k))) headers['User-Agent'] = UA_WAP;
+  
+  const oldCookie = auth ? auth.cookie : ($persistentStore.read(STORE.cookie) || '');
+  if (oldCookie) headers['Cookie'] = oldCookie;
+
+  try {
+    const resp = await httpRequest({ url, headers, body, timeout: 15000 });
+    return !!resp && resp.status === 200 && absorbSetCookie(resp.headers, phone);
+  } catch (e) {
+    return false;
+  }
+}
+
 async function queryKind(kind, phone) {
-  const enc = QXStore.read(STORE.paramsEnc) || '';
-  const xqen = (QXStore.read(STORE.xqen) || '').trim();
-  if (!enc || !REQ_KEY[xqen]) throw new Error('no-params');
+  let multiAuth = {};
+  try { multiAuth = JSON.parse($persistentStore.read(STORE.multiAuth) || '{}'); } catch(e){}
+  let auth = multiAuth[phone];
+
+  let enc = auth ? auth.paramsEnc : ($persistentStore.read(STORE.paramsEnc) || '');
+  let xqen = auth ? (auth.xqen || '').trim() : ($persistentStore.read(STORE.xqen) || '').trim();
+
+  if (!enc || !REQ_KEY[xqen]) {
+    const e = new Error('no-params');
+    e.stage = 'capture';
+    throw e;
+  }
   const plain = cmDecrypt(enc, REQ_KEY[xqen], REQ_IV[xqen]);
   const params = JSON.parse(plain);
-  const q = buildQuery(params, kind, phone);
-  const resp = await qxRequest({ url: q.url, headers: q.headers, body: q.body });
+  const q = buildQuery(params, kind, phone, auth);
+  const resp = await httpRequest({ url: q.url, headers: q.headers, body: q.body, timeout: 15000 });
 
-  if (!resp || resp.status !== 200) throw new Error('network-error');
-  absorbSetCookie(resp.headers);
+  if (!resp || resp.status !== 200) {
+    const e = new Error(`HTTP ${resp ? resp.status : '无响应'}`);
+    e.stage = 'network';
+    throw e;
+  }
+  absorbSetCookie(resp.headers, phone);
   const text = String(resp.body || '');
   const xpen = String(getHeader(resp.headers, 'x-pen') || '').trim();
   let data;
-  if (xpen === '1') {
-    const inner = JSON.parse(text);
-    data = JSON.parse(cmDecrypt(inner.body, RESP1_KEY, DEFAULT_IV));
-  } else if (xpen === '2') {
-    data = JSON.parse(cmDecrypt(text, RESP2_KEY, DEFAULT_IV));
-  } else if (xpen === '14') {
-    data = JSON.parse(cmDecrypt(text, RESP14_KEY, RESP14_IV));
-  } else {
-    data = JSON.parse(text);
+  try {
+    if (xpen === '1') {
+      const inner = JSON.parse(text);
+      data = JSON.parse(cmDecrypt(inner.body, RESP1_KEY, DEFAULT_IV));
+    } else if (xpen === '2') {
+      data = JSON.parse(cmDecrypt(text, RESP2_KEY, DEFAULT_IV));
+    } else if (xpen === '14') {
+      data = JSON.parse(cmDecrypt(text, RESP14_KEY, RESP14_IV));
+    } else {
+      data = JSON.parse(text);
+    }
+  } catch (e) {
+    const err = new Error('decrypt-failed');
+    err.stage = 'decrypt';
+    throw err;
   }
   return data;
 }
 
 function toFlowUnit(remain, unit) {
   if (unit === '03') {
-    return remain >= 1024 ? { number: (remain / 1024).toFixed(2), unit: 'GB' } : { number: remain.toFixed(2), unit: 'MB' };
+    return remain >= 1024
+      ? { number: (remain / 1024).toFixed(2), unit: 'GB' }
+      : { number: remain.toFixed(2), unit: 'MB' };
   }
   if (unit === '04') return { number: remain.toFixed(2), unit: 'GB' };
   return { number: remain.toFixed(2), unit: String(unit || 'MB') };
@@ -509,13 +672,19 @@ function deepFindAllFlows(obj, out, seen) {
   if (!obj || typeof obj !== 'object') return;
   if (seen.has(obj)) return;
   seen.add(obj);
+
   if (Array.isArray(obj)) {
     for (const item of obj) {
-      if (item && typeof item === 'object' && item.flowRemainNum !== undefined) out.push(item);
-      else deepFindAllFlows(item, out, seen);
+      if (item && typeof item === 'object' && item.flowRemainNum !== undefined) {
+        out.push(item);
+      } else {
+        deepFindAllFlows(item, out, seen);
+      }
     }
   } else {
-    for (const k of Object.keys(obj)) deepFindAllFlows(obj[k], out, seen);
+    for (const k of Object.keys(obj)) {
+      deepFindAllFlows(obj[k], out, seen);
+    }
   }
 }
 
@@ -525,13 +694,23 @@ function parseMobile(feeData, planData) {
   const planInfo = planBody.newPlanRemainQryRes || planBody;
 
   const feeNum = parseFloat(feeInfo.realBalanceFee || feeInfo.curFee || '0');
-  const fee = { title: '剩余话费', number: Number.isFinite(feeNum) ? feeNum.toFixed(2) : '0.00', unit: '元' };
+  const fee = {
+    title: '剩余话费',
+    number: Number.isFinite(feeNum) ? feeNum.toFixed(2) : '0.00',
+    unit: '元',
+  };
 
   const rawFlowList = [];
   deepFindAllFlows(planData, rawFlowList, new Set());
 
-  let genRemain = 0, genUnit = '03', hasGen = false, genSize = 0;
-  let otherTotalMb = 0, otherSize = 0, hasOther = false;
+  let genRemain = 0;
+  let genUnit = '03';
+  let hasGen = false;
+  let genSum = 0;
+
+  let otherTotalMb = 0;
+  let otherSumMb = 0;
+  let hasOther = false;
 
   rawFlowList.forEach((f) => {
     const remain = parseFloat(f.flowRemainNum || '0');
@@ -545,11 +724,11 @@ function parseMobile(feeData, planData) {
         genRemain = remain;
         genUnit = String(f.unit || '03');
         hasGen = true;
-        if (Number.isFinite(s) && s > 0) genSize = s * k;
+        if (Number.isFinite(s) && s > 0) genSum = s * k;
       }
     } else {
       otherTotalMb += remain * k;
-      if (Number.isFinite(s)) otherSize += s * k;
+      if (Number.isFinite(s)) otherSumMb += s * k;
       hasOther = true;
     }
   });
@@ -558,13 +737,25 @@ function parseMobile(feeData, planData) {
   if (hasGen) {
     const u = toFlowUnit(genRemain, genUnit);
     const curMb = genRemain * (genUnit === '04' ? 1024 : 1);
-    flow = { title: '通用', number: u.number, unit: u.unit, percent: genSize > 0 ? Math.max(0, Math.min(1, curMb / genSize)) : 0.8 };
+    flow = {
+      title: '通用',
+      number: u.number,
+      unit: u.unit,
+      percent: genSum > 0 ? Math.max(0, Math.min(1, curMb / genSum)) : 0.8
+    };
   }
 
   let otherFlow = { title: '定向', number: '--', unit: '', percent: 0 };
   if (hasOther) {
-    const u = otherTotalMb >= 1024 ? { number: (otherTotalMb / 1024).toFixed(2), unit: 'GB' } : { number: otherTotalMb.toFixed(2), unit: 'MB' };
-    otherFlow = { title: '定向', number: u.number, unit: u.unit, percent: otherSize > 0 ? Math.max(0, Math.min(1, otherTotalMb / otherSize)) : 0.7 };
+    const u = otherTotalMb >= 1024
+      ? { number: (otherTotalMb / 1024).toFixed(2), unit: 'GB' }
+      : { number: otherTotalMb.toFixed(2), unit: 'MB' };
+    otherFlow = {
+      title: '定向',
+      number: u.number,
+      unit: u.unit,
+      percent: otherSumMb > 0 ? Math.max(0, Math.min(1, otherTotalMb / otherSumMb)) : 0.7
+    };
   }
 
   let voice = { title: '语音', number: '--', unit: '分钟', percent: 1.0 };
@@ -572,32 +763,46 @@ function parseMobile(feeData, planData) {
   if (voiceArrDirect.length) {
     const vRemain = parseInt(voiceArrDirect[0].voiceRemainNum || '0', 10);
     voice.number = String(Number.isFinite(vRemain) ? vRemain : 0);
+    const vs = parseInt(voiceArrDirect[0].voiceSumNum || '0', 10);
+    if (Number.isFinite(vs) && vs > 0) voice.percent = Math.max(0, Math.min(1, vRemain / vs));
+  } else if (planData) {
+    const vMatch = JSON.stringify(planData).match(/"voiceRemainNum":"?(\d+)"?/);
+    if (vMatch) voice.number = vMatch[1];
   }
 
-  const valid = (feeInfo && (feeInfo.realBalanceFee != null || feeInfo.curFee != null)) || hasGen || hasOther;
+  const feeOk = feeInfo && (feeInfo.realBalanceFee != null || feeInfo.curFee != null);
+  const valid = feeOk || hasGen || hasOther || voice.number !== '--';
   return { fee, flow, otherFlow, voice, updatedAt: Date.now(), valid };
 }
 
 async function fetchAccountData(phone) {
-  const feeData = await queryKind('fee', phone);
-  const planData = await queryKind('plan', phone);
-  return parseMobile(feeData, planData);
+  const fetchSingle = async () => {
+    const feeData = await queryKind('fee', phone);
+    const planData = await queryKind('plan', phone);
+    return parseMobile(feeData, planData);
+  };
+
+  let ds = await fetchSingle();
+  if (!ds.valid && (await autoRefreshSession(phone))) {
+    ds = await fetchSingle();
+  }
+  if (!ds.valid) throw new Error('登录态失效');
+  return ds;
 }
 
-async function loadMultiData() {
-  const accounts = parseAccounts();
-  if (accounts.length === 0) {
-    const primary = QXStore.read(STORE.primaryPhone);
-    if (primary) accounts.push({ label: '主卡', phone: primary });
-  }
-  if (accounts.length === 0) return { success: false, msg: '请在 BoxJS 中配置账号' };
+async function loadMultiData(accounts) {
+  const hasParams = !!($persistentStore.read(STORE.paramsEnc));
+  if (!hasParams) return { configured: false, reason: 'capture' };
+  if (!accounts || accounts.length === 0) return { configured: false, reason: 'phone' };
 
   let cachedMap = {};
   try {
-    cachedMap = JSON.parse(QXStore.read(STORE.multiDs) || '{}');
+    cachedMap = JSON.parse($persistentStore.read(STORE.multiDs) || '{}');
   } catch (e) {}
 
   const results = [];
+  let hasUpdated = false;
+
   for (const acc of accounts) {
     try {
       const ds = await fetchAccountData(acc.phone);
@@ -605,73 +810,201 @@ async function loadMultiData() {
       ds.label = acc.label;
       results.push({ label: acc.label, phone: acc.phone, ds, success: true });
       cachedMap[acc.phone] = ds;
+      hasUpdated = true;
     } catch (e) {
       if (cachedMap[acc.phone]) {
-        results.push({ label: acc.label, phone: acc.phone, ds: cachedMap[acc.phone], success: true });
+        results.push({ label: acc.label, phone: acc.phone, ds: cachedMap[acc.phone], success: true, fromCache: true });
       } else {
-        results.push({ label: acc.label, phone: acc.phone, success: false });
+        results.push({ label: acc.label, phone: acc.phone, success: false, error: e.message || '查询失败' });
       }
     }
   }
 
-  QXStore.write(JSON.stringify(cachedMap), STORE.multiDs);
-  return { success: true, results };
+  if (hasUpdated) {
+    $persistentStore.write(JSON.stringify(cachedMap), STORE.multiDs);
+    results.forEach((item, idx) => {
+      if (item.ds) {
+        $persistentStore.write(JSON.stringify(item.ds), `cm_card_${idx + 1}`);
+        $persistentStore.write(JSON.stringify(item.ds), `cm_card_${item.phone}`);
+      }
+    });
+    if (results[0] && results[0].ds) {
+      $persistentStore.write(JSON.stringify(results[0].ds), 'cm_datasource');
+    }
+  }
+
+  return { configured: true, results };
+}
+
+function toMB(d) {
+  const n = parseFloat(d && d.number);
+  if (!Number.isFinite(n)) return null;
+  return d.unit === 'GB' ? n * 1024 : n;
+}
+
+function fmtMB(mb) {
+  if (mb == null || !Number.isFinite(mb)) return '--';
+  return mb >= 1024 ? `${(mb / 1024).toFixed(2)}GB` : `${mb.toFixed(0)}MB`;
+}
+
+function calculateInsights(ds, phone) {
+  const now = new Date();
+  const pad2 = function(n) { return n < 10 ? '0'+n : ''+n; };
+  const dayKey = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysLeft = dim - now.getDate() + 1;
+
+  const _g = toMB(ds.flow), _o = toMB(ds.otherFlow);
+  const flowMB = (_g == null && _o == null) ? null : ((_g || 0) + (_o || 0));
+
+  const snapKey = `cm_day_snap_${phone}`;
+  let todayMB = null;
+  if (flowMB != null) {
+    let snap = null;
+    try { snap = JSON.parse($persistentStore.read(snapKey) || 'null'); } catch (e) {}
+    if (!snap || snap.date !== dayKey || flowMB > snap.start + 1) {
+      snap = { date: dayKey, start: flowMB };
+      $persistentStore.write(JSON.stringify(snap), snapKey);
+    }
+    todayMB = Math.max(0, snap.start - flowMB);
+  }
+
+  return {
+    daysLeft,
+    todayMB,
+    dailyMB: flowMB != null ? flowMB / daysLeft : null,
+    lowFee: parseFloat(ds.fee.number) < 10
+  };
 }
 
 function getVisualWidth(str) {
   let len = 0;
   for (let i = 0; i < str.length; i++) {
     const c = str.charCodeAt(i);
-    if ((c >= 0x4e00 && c <= 0x9fa5) || (c >= 0xff00 && c <= 0xffef)) len += 2;
-    else len += 1;
+    if ((c >= 0x4e00 && c <= 0x9fa5) || (c >= 0xff00 && c <= 0xffef)) {
+      len += 2;
+    } else {
+      len += 1;
+    }
   }
   return len;
 }
 
 function padRight(str, targetWidth) {
   let cur = getVisualWidth(str);
-  while (cur < targetWidth) { str += ' '; cur += 1; }
+  while (cur < targetWidth) {
+    str += ' ';
+    cur += 1;
+  }
   return str;
 }
 
 async function renderPanel() {
-  const res = await loadMultiData();
-  if (!res.success) {
-    $done({ title: '中国移动', content: res.msg, icon: 'exclamationmark.triangle', 'icon-color': '#FF9F0A' });
-    return;
+  const args = parseArguments();
+  const panelTitle = args.title || '中国移动';
+  
+  let accountStr = args.accounts || $persistentStore.read('cm_accounts');
+  const accounts = parseAccounts(accountStr);
+
+  if (accounts.length === 0) {
+    const primary = $persistentStore.read(STORE.primaryPhone);
+    if (primary) accounts.push({ label: '卡1', phone: primary });
   }
 
-  let curIdx = parseInt(QXStore.read(STORE.cardIndex) || '0', 10);
-  if (curIdx >= res.results.length) curIdx = 0;
-  const item = res.results[curIdx];
-  QXStore.write(String((curIdx + 1) % res.results.length), STORE.cardIndex);
+  try {
+    const res = await loadMultiData(accounts);
 
-  if (!item.success || !item.ds) {
-    $done({ title: `中国移动 · ${item.label}`, content: '⚠️ 拉取失败，请打开App登录刷新', icon: 'exclamationmark.triangle', 'icon-color': '#FF453A' });
-    return;
+    if (!res.configured) {
+      const msg = res.reason === 'phone' ? '⚠️ 请在 BoxJS/参数中填入账号' : '📲 请在App用短信验证码登录一次';
+      $done({
+        title: panelTitle,
+        content: msg,
+        icon: 'exclamationmark.triangle',
+        'icon-color': '#FF9F0A'
+      });
+      return;
+    }
+
+    let curIdx = parseInt($persistentStore.read(STORE.cardIndex) || '0', 10);
+    if (curIdx >= res.results.length) curIdx = 0;
+    const item = res.results[curIdx];
+    const nextIdx = (curIdx + 1) % res.results.length;
+    $persistentStore.write(String(nextIdx), STORE.cardIndex);
+
+    if (!item.success || !item.ds) {
+      $done({
+        title: `${panelTitle} · ${item.label}`,
+        content: `⚠️ 拉取失败: ${item.error || '登录过期'}\n👉 打开App刷新后重试`,
+        icon: 'exclamationmark.triangle',
+        'icon-color': '#FF453A'
+      });
+      return;
+    }
+
+    const ds = item.ds;
+    const phone = item.phone;
+    const ins = calculateInsights(ds, phone);
+    const phoneMask = `${phone.slice(0, 3)}****${phone.slice(7)}`;
+
+    const feeStr = `¥${ds.fee.number}`;
+    const voiceStr = ds.voice ? `${ds.voice.number} 分钟` : '--';
+    const flowStr = ds.flow.number !== '--' ? `${ds.flow.number} ${ds.flow.unit}` : '--';
+    const combatFlow = ds.otherFlow.number !== '--' ? `${ds.otherFlow.number} ${ds.otherFlow.unit}` : '--';
+    const todayStr = fmtMB(ins.todayMB);
+    const dailyStr = fmtMB(ins.dailyMB);
+
+    const col1 = padRight(`💰 话费: ${feeStr}`, 18) + `📞 语音: ${voiceStr}`;
+    const col2 = padRight(`📶 通用: ${flowStr}`, 18) + `🌐 定向: ${combatFlow}`;
+    const col3 = padRight(`📊 今日: ${todayStr}`, 18) + `⏳ 日均: ${dailyStr}`;
+    const col4 = padRight(`🗓️ 剩余: ${ins.daysLeft} 天`, 18) + `🕒 更新: ${fmtTime(ds.updatedAt)}`;
+
+    const titleTag = res.results.length > 1
+      ? `${panelTitle} · ${item.label} ${phoneMask} (${curIdx + 1}/${res.results.length})`
+      : `${panelTitle} · ${phoneMask}`;
+
+    $done({
+      title: titleTag,
+      content: `${col1}\n${col2}\n${col3}\n${col4}`,
+      icon: ins.lowFee ? 'exclamationmark.circle.fill' : 'antenna.radiowaves.left.and.right',
+      'icon-color': ins.lowFee ? '#FF3B30' : '#0A84FF'
+    });
+  } catch (err) {
+    $done({
+      title: panelTitle,
+      content: `❌ 异常: ${err.message || err}`,
+      icon: 'exclamationmark.triangle',
+      'icon-color': '#FF453A'
+    });
   }
-
-  const ds = item.ds;
-  const phoneMask = `${item.phone.slice(0, 3)}****${item.phone.slice(7)}`;
-  const feeStr = `¥${ds.fee.number}`;
-  const voiceStr = ds.voice ? `${ds.voice.number}分` : '--';
-  const flowStr = ds.flow.number !== '--' ? `${ds.flow.number} ${ds.flow.unit}` : '--';
-  const otherFlowStr = ds.otherFlow.number !== '--' ? `${ds.otherFlow.number} ${ds.otherFlow.unit}` : '--';
-
-  const col1 = padRight(`💰 话费: ${feeStr}`, 18) + `📞 语音: ${voiceStr}`;
-  const col2 = padRight(`📶 通用: ${flowStr}`, 18) + `🌐 定向: ${otherFlowStr}`;
-  const col3 = padRight(`🕒 更新: ${fmtTime(ds.updatedAt)}`, 18) + `📱 号码: ${phoneMask}`;
-
-  $done({
-    title: `中国移动 · ${item.label} (${curIdx + 1}/${res.results.length})`,
-    content: `${col1}\n${col2}\n${col3}`,
-    icon: 'antenna.radiowaves.left.and.right',
-    'icon-color': '#0A84FF'
-  });
 }
 
-if (typeof $request !== 'undefined') {
-  if (typeof $response !== 'undefined') {     handleResponseCapture();   } else {     handleRequestCapture();   }$done({});
-} else {
-  loadMultiData().then(() => $done());
+async function keepAliveTask() {
+  const args = parseArguments();
+  let accountStr = args.accounts || $persistentStore.read('cm_accounts');
+  const accounts = parseAccounts(accountStr);
+  try {
+    await loadMultiData(accounts);
+  } catch (e) {}
+  $done({});
+}
+
+try {
+  const isResp = typeof $response !== 'undefined';
+  const isReq = typeof $request !== 'undefined' && $request &&$request.url;
+
+  if (isResp) { 
+    handleResponseCapture(); 
+  } else if (isReq) {
+    handleRequestCapture();
+  } else {
+    const args = parseArguments();
+    if (args.action === 'task') {
+      keepAliveTask();
+    } else {
+      renderPanel();
+    }
+  }
+} catch (globalErr) {
+  console.log(`[全局异常] ${globalErr.message || globalErr}`);
+  $done({});
 }
