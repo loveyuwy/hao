@@ -7,7 +7,7 @@
 Quantumult X需在配置[task_local]里手动添加定时运行脚本
 [task_local]
 # 定时任务：自动从 BoxJS 读取账号并后台保活刷新（默认每 20 分钟）
-*/20 * * * * https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.js, tag=中国移动多卡同步, img-url=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/China_Mobile.png 
+*/20 * * * * https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.js, tag=中国移动多卡同步, img-url=https://raw.githubusercontent.com/yuhuohua/tupiao/refs/heads/main/zgyd.png 
 [rewrite_local]
 # 扩大 MITM 匹配范围，捕获所有中国移动 App 的加密及登录请求
 ^https?:\/\/(client\.app\.coc\.10086\.cn|10086\.online-cmcc\.cn)(:\d+)?\/(cache_server|biz-orange)\/ url script-request-body https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.js
