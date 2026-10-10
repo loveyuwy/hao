@@ -19,7 +19,6 @@ hostname = client.app.coc.10086.cn, 10086.online-cmcc.cn, *.10086.cn
 
 'use strict';
 
-/* ==================== 1. 加解密基础库 ==================== */
 'use strict';
 
 const isQX = typeof $task !== 'undefined';
