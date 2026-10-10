@@ -1,5 +1,5 @@
 name: 中国电信（Hark 仪表盘版）
-description: 监控电信话费与流量信息。接口由贰月红大佬提供，感谢贰月红大佬。手动添加值：CT_ACCOUNT。账号格式: 手机号:服务密码:androidId。示例18888888888:123456:a60c************
+description: 监控电信话费与流量信息。接口由贰月红大佬提供，感谢贰月红大佬。
 author: 〈ザㄩメ火华
 icon: https://raw.githubusercontent.com/yuhuohua/tupiao/refs/heads/main/zgdx.png
 dns: {}
