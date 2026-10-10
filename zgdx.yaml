@@ -1,22 +1,4 @@
-name: 中国电信（Hark 仪表盘版）
-description: 监控电信话费与流量信息。接口由贰月红大佬提供，感谢贰月红大佬。
-author: 〈ザㄩメ火华
-icon: https://raw.githubusercontent.com/yuhuohua/tupiao/refs/heads/main/zgdx.png
-dns: {}
-scriptings:
-- generic:
-    name: china-telecom-dash
-    script_url: https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgdx.js
-    env:
-      CT_ACCOUNT: ''
-      CT_TITLE: '中国电信'
-    update_interval: 3600
-    timeout: 20
-widgets:
-- name: china-telecom-dash
-
-
-name: 中国电信（Hark 仪表盘版）
+name: 中国电信
 description: |-
   桌面/锁屏小组件：剩余话费 + 通用/定向/语音仪表盘 + 近7天流量洞察。采用 iOS 液态玻璃风格。
   监控电信话费与流量信息。接口由贰月红大佬提供，感谢贰月红大佬。
