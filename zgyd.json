@@ -11,7 +11,7 @@
       "author": "Collaborator",
       "repo": "https://github.com/loveyuwy/hao",
       "icons": [
-        "https://raw.githubusercontent.com/anker1209/icon/main/zgyd.png"
+        "https://raw.githubusercontent.com/yuhuohua/tupiao/refs/heads/main/zgyd.png"
       ],
       "description": "多账号移动话费与流量统计、小组件及面板数据同步。",
       "script": "https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.js",
