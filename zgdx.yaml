@@ -1,0 +1,42 @@
+name: 电信话费流量监控
+description: 监控电信话费与流量信息。支持多号码，每个号码弹窗通知，可以在一个面板中展示所有已配置账号，接口由贰月红大佬提供，感谢贰月红大佬。
+compat_arguments:
+  Cron定时设置: 0 9 * * *
+  静默运行: ''
+  账号1: ''
+  账号2: ''
+  账号3: ''
+  账号4: ''
+  账号5: ''
+  账号6: ''
+compat_arguments_desc: |-
+  [配置参数]
+
+  ⓵ CRON定时: 运行时间（默认早上9点）
+  ⓶ 账号格式: 手机号:服务密码:androidId。示例18888888888:123456:a60c************
+  ⓷ 静默运行: 填 # 则定时任务静默不弹窗。
+   androidId复制下面链接获取。
+  https://telecom.nufe.ccwu.cc
+author: 〈ザㄩメ火华
+icon: https://raw.githubusercontent.com/yuhuohua/tupiao/refs/heads/main/zgdx.png
+dns: {}
+scriptings:
+- schedule:
+    name: 电信多账号定时
+    cron: 0 9 * * *
+    script_url: https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgdx.js
+    env:
+      _compat.$argument: '#####&silent='
+    timeout: 90
+- generic:
+    name: 电信统一面板
+    script_url: https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgdx.js
+    env:
+      _compat.$argument: '#####'
+    timeout: 60
+panels:
+- name: 电信总面板
+  title: 电信营业厅
+  content: 正在获取数据...
+  script_name: 电信统一面板
+  update_interval: 3600
