@@ -3,7 +3,7 @@
  * 
 中国移动（Quantumult X BoxJS ）
 功能：短信登录凭证捕获 / BoxJS 账号池同步 / 多账号话费与流量查询
-订阅boxjs:https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.json
+boxjs订阅:https://raw.githubusercontent.com/loveyuwy/hao/refs/heads/main/zgyd.json
 Quantumult X需在配置[task_local]里手动添加定时运行脚本
 [task_local]
 # 定时任务：自动从 BoxJS 读取账号并后台保活刷新（默认每 20 分钟）
